@@ -1,24 +1,24 @@
 (ns rehook.test
   (:require [rehook.core :as rehook]))
 
-(defn ctx-transformer [ctx elem]
+(defn- ctx-transformer [ctx elem]
   (update ctx :reax.test/id conj (pr-str elem)))
 
-(defn use-state
+(defn- use-state
   [local-state next-scene component-id state-id initial-value]
   (let [curr-state-id (swap! state-id inc)
         current-value (get local-state [component-id curr-state-id] initial-value)]
     [current-value #(when-not (= current-value %)
                       (next-scene (assoc local-state [component-id curr-state-id] %)))]))
 
-(defn use-effect
+(defn- use-effect
   [effects component-id effect-id f deps]
   (let [curr-effect-id (swap! effect-id inc)]
     (swap! effects assoc [component-id curr-effect-id]
            {:deps  deps
             :f     f})))
 
-(defn handle-type
+(defn- handle-type
   [next-elements e ctx $ args raw-args children]
   (let [evaled (if (fn? e)
                  (let [ret (e ctx $)]
@@ -35,7 +35,7 @@
         evaled)
       evaled)))
 
-(defn bootstrap
+(defn- bootstrap
   ([next-elements next-scene effects local-state ctx ctx-f props-f e]
    (bootstrap next-elements next-scene effects local-state ctx ctx-f props-f e {}))
 
@@ -58,7 +58,7 @@
     (umount-f))
   scene)
 
-(defn eval-effect? [ticks prev-deps deps]
+(defn- eval-effect? [ticks prev-deps deps]
   (cond
     (= 0 ticks)           true
     (empty? deps)         true
@@ -83,7 +83,8 @@
                                  id))
                           (doall))}))
 
-(defn component->scenes [ctx ctx-f props-f e]
+(defn init-scenes
+  [ctx ctx-f props-f e]
   (let [scenes (atom {:timeline []})]
     (letfn [(next-scene [next-local-state]
               (swap! scenes update :timeline conj

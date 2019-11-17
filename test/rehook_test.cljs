@@ -14,7 +14,7 @@
        x)))
 
 (deftest simple-ui-test
-  (let [scenes (rehook.test/component->scenes {} identity clj->js simple-ui)
+  (let [scenes (rehook.test/init-scenes {} identity clj->js simple-ui)
         scene1 (rehook.test/play-scenes! scenes 0)]
 
     (testing "Rendered value should be equal foo"
@@ -36,7 +36,7 @@
 
 (deftest simple-ui-atom-test
   (let [my-atom (atom "foo")
-        scenes  (rehook.test/component->scenes {:my-atom my-atom} identity clj->js simple-ui-atom)
+        scenes  (rehook.test/init-scenes {:my-atom my-atom} identity clj->js simple-ui-atom)
         scene1  (rehook.test/play-scenes! scenes 0)]
 
     (testing "Rendered value should equal foo"
