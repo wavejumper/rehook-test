@@ -1,4 +1,11 @@
-{
+{ "name": "rehook-test",
+  "description": "Test library for rehook",
+  "version": "1.0.0",
+  "author": "Thomas Crowley",
+  "license": "MIT",
+  "scripts": {
+    "compile": "shadow-cljs compile test"
+  },
   "dependencies": {
     "global": "^4.4.0",
     "react": "^16.8.6",
