@@ -53,10 +53,9 @@
                 (props-f args)]
                children))))))
 
-(defn unmount-scene [scene]
-  (doseq [umount-f (:evaled-effects scene)]
-    (umount-f))
-  scene)
+(defn unmount-scene! [scene]
+  (doseq [[_ umount-f] (:evaled-effects scene)]
+    (umount-f)))
 
 (defn- eval-effect? [ticks prev-deps deps]
   (cond
@@ -79,8 +78,7 @@
                                     (let [prev-deps (get-in prev-effects [id :deps])]
                                       (eval-effect? curr-tick prev-deps deps))))
                           (map (fn [[id {:keys [f]}]]
-                                 (f)
-                                 id))
+                                 [id (f)]))
                           (doall))}))
 
 (defn init-scenes
@@ -103,6 +101,7 @@
   (let [{:keys [timeline]} @scenes]
     (reduce
      (fn [prev-scene scene]
+       (unmount-scene! prev-scene)
        (mount-scene prev-scene scene))
      {:ticks 0}
      (drop index timeline))))
