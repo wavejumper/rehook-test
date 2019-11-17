@@ -1,0 +1,34 @@
+version: 2.1
+
+orbs:
+  node: circleci/node@1.1.6
+  clojure: lambdaisland/clojure@0.0.1
+
+executors:
+  tools-deps-executor:
+    docker:
+      - image: circleci/clojure:tools-deps
+    working_directory: ~/repo
+
+jobs:
+  test:
+    executor: tools-deps-executor
+    steps:
+      - checkout
+      - node/install
+      - node/with-cache:
+          steps:
+            - run: npm install
+      - clojure/with_cache:
+          steps:
+            - run: npm run compile
+      - run:
+          command: node out/test.js
+
+workflows:
+  version: 2.1
+  general_build:
+    jobs:
+      - test
+
+
