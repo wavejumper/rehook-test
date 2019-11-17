@@ -53,7 +53,7 @@
                 (props-f args)]
                children))))))
 
-(defn unmount-scene! [scene]
+(defn unmount! [scene]
   (doseq [[_ umount-f] (:evaled-effects scene)]
     (umount-f)))
 
@@ -81,7 +81,7 @@
                                  [id (f)]))
                           (doall))}))
 
-(defn init-scenes
+(defn timeline
   [ctx ctx-f props-f e]
   (let [scenes (atom {:timeline []})]
     (letfn [(next-scene [next-local-state]
@@ -96,14 +96,14 @@
       (next-scene {})
       scenes)))
 
-(defn play-scenes!
+(defn mount!
   ([scenes]
-   (play-scenes! scenes nil))
+   (mount! scenes nil))
   ([scenes scene]
    (let [{:keys [timeline]} @scenes]
      (reduce
       (fn [prev-scene scene]
-        (unmount-scene! prev-scene)
+        (unmount! prev-scene)
         (mount-scene prev-scene scene))
       {:ticks 0}
       (drop (get scene :tick 0) timeline)))))
