@@ -2,7 +2,7 @@
 
 [![CircleCI](https://circleci.com/gh/wavejumper/rehook-test.svg?style=svg)](https://circleci.com/gh/wavejumper/rehook-test)
 
-Complete testing of your rehook components. This works for both `react-dom` and `react-native`.
+Time-travelling tests for React Hooks and Clojurescript. This works for both `react-dom` and `react-native`.
 
 **WIP** thanks for stopping by, documentation to follow :)
 
