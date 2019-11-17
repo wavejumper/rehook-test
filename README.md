@@ -18,9 +18,9 @@ Like all great Clojure software, such as Datomic, rehook has an explicit notion 
 
 * Simulate user interaction (eg, trigger `onClick` for some inputs)
 * Introspect and view the props/children of an element at any point in time
-* Test that your `react-dom/render` call does not throw any runtime exceptions at any point in time
+* Test that your `react-dom/render` call does not throw any runtime exceptions for all scenes
 
-Therefore, these tests can:
+Therefore, rehook-test can:
 
 * Test your entire application, from data to view with absolutely no mocking
 * Test that your component is in sync with your data layer's contract
@@ -28,4 +28,8 @@ Therefore, these tests can:
 
 # Writing tests
 
-We take full advantage of the fact that we can overload all rehook components render fns to allow us to completely simulate
+## Requirements
+
+This requires both [rehook](https://github.com/wavejumper/rehook) and [rehook-dom](https://github.com/wavejumper/rehook-dom) as dependencies.
+
+## Example ui
