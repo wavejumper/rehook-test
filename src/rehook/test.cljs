@@ -26,12 +26,17 @@
 
 (defn handle-type
   [e ctx $ args]
-  (if (fn? e)
-    (let [ret (e ctx $)]
-      (if (fn? ret)
-        (ret args)
-        ret))
-    e))
+  (let [evaled (if (fn? e)
+                 (let [ret (e ctx $)]
+                   (if (fn? ret)
+                     (ret args)
+                     ret))
+                 e)]
+    (if-let [id (get (meta e) :rehook/id)]
+      (do
+
+        evaled)
+      evaled)))
 
 (defn bootstrap
   ([ticks next-scene effects local-state ctx ctx-f props-f e]
@@ -78,9 +83,11 @@
                      (fn [scenes]
                        (let [{:keys [effects]} (last scenes)]
                          (let [next-effects {:prev (some-> effects :curr deref)
-                                             :curr (atom {})}]
+                                             :curr (atom {})}
+                               actions (atom {})]
                            (conj scenes
-                                 {:render  (bootstrap (count scenes) next-scene next-effects next-local-state
+                                 {:actions actions
+                                  :render  (bootstrap (count scenes) next-scene next-effects next-local-state
                                                       ctx ctx-f props-f e)
                                   :effects next-effects}))))))]
       (next-scene {})

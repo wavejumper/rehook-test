@@ -3,16 +3,16 @@
             [rehook.core :as rehook]
             [rehook.dom :refer-macros [defui]]))
 
-(defui my-cool-ui
+(defui simple-ui
   [_ _ $]
   (js/console.log "I am being invoked...")
-  (let [[x set-x] (rehook/use-state "My state")]
-    ($ :div {:onClick #(set-x "y")}
+  (let [[x set-x] (rehook/use-state "foo")]
+
+    ^{:rehook/id "test-div"}
+    ($ :div {:onClick #(set-x "bar")}
        x)))
 
-(js/console.log my-cool-ui )
+(defn simple-ui-test []
+  (rehook.test/component->scenes {} identity clj->js my-cool-ui)
 
-(defn a-test []
-  (rehook.test/component->scenes {} identity clj->js my-cool-ui))
-
-(a-test)
+  )
