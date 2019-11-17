@@ -7,30 +7,31 @@
   [local-state next-scene component-id state-id initial-value]
   (let [curr-state-id (swap! state-id inc)
         current-value (get local-state [component-id curr-state-id] initial-value)]
-    (js/console.log "State called" (pr-str [component-id curr-state-id]))
+    ;; (js/console.log "State called" (pr-str [component-id curr-state-id]))
     [current-value #(when-not (= current-value %)
                       (next-scene (assoc local-state [component-id curr-state-id] %)))]))
 
 (defn use-effect
   [effects component-id effect-id f deps]
   (let [curr-effect-id (swap! effect-id inc)]
-    (js/console.log "Effect called" (pr-str [component-id curr-effect-id]))
+    ;; (js/console.log "Effect called" (pr-str [component-id curr-effect-id]))
     (swap! effects assoc [component-id curr-effect-id]
            {:deps  deps
             :f     f})))
 
 (defn handle-type
-  [next-elements e ctx $ args]
+  [next-elements e ctx $ args raw-args children]
   (let [evaled (if (fn? e)
                  (let [ret (e ctx $)]
                    (if (fn? ret)
                      (ret args)
                      ret))
                  e)]
-    (if-let [id (get (meta e) :rehook/id)]
-      (let [elem-meta {:e e
-                       :args args
-                       :evaled evaled}]
+    (if-let [id (:rehook/id raw-args)]
+      (let [elem-meta {:e        e
+                       :args     raw-args
+                       :evaled   evaled
+                       :children children}]
         (swap! next-elements assoc id elem-meta)
         evaled)
       evaled)))
@@ -40,7 +41,7 @@
    (bootstrap next-elements next-scene effects local-state ctx ctx-f props-f e {}))
 
   ([next-elements next-scene effects local-state ctx ctx-f props-f e args & children]
-   (js/console.log "Bootstrap being called"
+   #_(js/console.log "Bootstrap being called"
                    (pr-str {:local-state local-state
                             :ctx ctx
                             :e e
@@ -54,13 +55,22 @@
      (with-redefs [rehook.core/use-state  (partial use-state local-state next-scene component-id state-id)
                    rehook.core/use-effect (partial use-effect effects component-id effect-id)]
 
-       (into [(handle-type next-elements e ctx (partial bootstrap next-elements next-scene effects local-state ctx ctx-f props-f) (props-f args))]
-             children)))))
+       (let [$ (partial bootstrap next-elements next-scene effects local-state ctx ctx-f props-f)]
+         (into [(handle-type next-elements e ctx $ (props-f args) args children)
+                (props-f args)]
+               children))))))
 
 (defn unmount-scene [scene]
   (doseq [umount-f (:evaled-effects scene)]
     (umount-f))
   scene)
+
+(defn eval-effect? [ticks prev-deps deps]
+  (cond
+    (= 0 ticks)           true
+    (empty? deps)         true
+    (not= prev-deps deps) true
+    :else                 false))
 
 (defn mount-scene
   [prev-scene scene]
@@ -77,11 +87,7 @@
      :evaled-effects (->> curr-effects
                           (filter (fn [[id {:keys [deps]}]]
                                     (let [prev-deps (get-in prev-effects [id :deps])]
-                                      (cond
-                                        (= 0 curr-tick) true
-                                        (empty? deps) true
-                                        (not= prev-deps deps) true
-                                        :else false))))
+                                      (eval-effect? curr-tick prev-deps deps))))
                           (map (fn [{:keys [f]}]
                                  (f))))}))
 
