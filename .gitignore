@@ -1,0 +1,6 @@
+.idea/
+.cpcache/
+.shadow-cljs/
+out/
+node_modules/
+*.iml

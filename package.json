@@ -1,0 +1,8 @@
+{
+  "dependencies": {
+    "global": "^4.4.0",
+    "react": "^16.8.6",
+    "react-dom": "^16.8.6",
+    "shadow-cljs": "^2.8.52"
+  }
+}
