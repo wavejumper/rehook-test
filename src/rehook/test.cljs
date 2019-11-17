@@ -120,4 +120,4 @@
     (apply f args)))
 
 (defn main []
-(js/console.log "rehook.test ~~~ ♪┏(・o･)┛♪"))
+  (js/console.log "rehook.test ~~~ ♪┏(・o･)┛♪"))
