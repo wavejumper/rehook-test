@@ -23,7 +23,7 @@ Like all great Clojure software, such as Datomic, rehook has an explicit notion 
 Therefore, rehook-test can:
 
 * Test your entire application, from data to view with absolutely no mocking
-* Test that your component is in sync with your data layer's contract
+* Test that your components are in sync with your data layer's contract
 * Test that your components actually return a valid React element
 
 # Writing tests

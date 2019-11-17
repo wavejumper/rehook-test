@@ -8,24 +8,19 @@
   (let [curr-state-id (swap! state-id inc)
         current-value (get local-state [component-id curr-state-id] initial-value)]
     (js/console.log "State called" (pr-str [component-id curr-state-id]))
-    [current-value #(next-scene (assoc local-state [component-id curr-state-id] %))]))
+    [current-value #(when-not (= current-value %)
+                      (next-scene (assoc local-state [component-id curr-state-id] %)))]))
 
 (defn use-effect
-  [effects ticks component-id effect-id f deps]
-  (let [prev-deps      (-> effects :prev :deps)
-        curr-effect-id (swap! effect-id inc)]
+  [effects component-id effect-id f deps]
+  (let [curr-effect-id (swap! effect-id inc)]
     (js/console.log "Effect called" (pr-str [component-id curr-effect-id]))
-    (swap! (:curr effects) assoc [component-id curr-effect-id]
+    (swap! effects assoc [component-id curr-effect-id]
            {:deps  deps
-            :f     f
-            :eval? (cond
-                     (= 0 ticks)           true
-                     (empty? deps)         true
-                     (not= prev-deps deps) true
-                     :else                 false)})))
+            :f     f})))
 
 (defn handle-type
-  [e ctx $ args]
+  [next-elements e ctx $ args]
   (let [evaled (if (fn? e)
                  (let [ret (e ctx $)]
                    (if (fn? ret)
@@ -33,19 +28,20 @@
                      ret))
                  e)]
     (if-let [id (get (meta e) :rehook/id)]
-      (do
-
+      (let [elem-meta {:e e
+                       :args args
+                       :evaled evaled}]
+        (swap! next-elements assoc id elem-meta)
         evaled)
       evaled)))
 
 (defn bootstrap
-  ([ticks next-scene effects local-state ctx ctx-f props-f e]
-   (bootstrap ticks next-scene effects local-state ctx ctx-f props-f e {}))
+  ([next-elements next-scene effects local-state ctx ctx-f props-f e]
+   (bootstrap next-elements next-scene effects local-state ctx ctx-f props-f e {}))
 
-  ([ticks next-scene effects local-state ctx ctx-f props-f e args & children]
+  ([next-elements next-scene effects local-state ctx ctx-f props-f e args & children]
    (js/console.log "Bootstrap being called"
-                   (pr-str {:ticks ticks
-                            :local-state local-state
+                   (pr-str {:local-state local-state
                             :ctx ctx
                             :e e
                             :args args}))
@@ -56,42 +52,61 @@
          effect-id    (atom 0)]
 
      (with-redefs [rehook.core/use-state  (partial use-state local-state next-scene component-id state-id)
-                   rehook.core/use-effect (partial use-effect effects ticks component-id effect-id)]
+                   rehook.core/use-effect (partial use-effect effects component-id effect-id)]
 
-       (into [(handle-type e ctx (partial bootstrap ticks next-scene effects local-state ctx ctx-f props-f) (props-f args))]
+       (into [(handle-type next-elements e ctx (partial bootstrap next-elements next-scene effects local-state ctx ctx-f props-f) (props-f args))]
              children)))))
-
-(defn mount-scene [scene]
-  {:render         (:render scene)
-   :effects        (:effects scene)
-   :evaled-effects (some->> (:effects scene)
-                            (:curr)
-                            (deref)
-                            (filter :eval?)
-                            (map (fn [{:keys [f]}]
-                                   (f))))})
 
 (defn unmount-scene [scene]
   (doseq [umount-f (:evaled-effects scene)]
     (umount-f))
   scene)
 
+(defn mount-scene
+  [prev-scene scene]
+  (let [curr-tick    (:ticks prev-scene)
+        curr-effects (some-> scene :effects deref)
+        prev-effects (:effects prev-scene)]
+
+    (unmount-scene prev-scene)
+
+    {:render         (:render scene)
+     :effects        curr-effects
+     :ticks          (inc curr-tick)
+     :elements       (some-> scene :elements deref)
+     :evaled-effects (->> curr-effects
+                          (filter (fn [[id {:keys [deps]}]]
+                                    (let [prev-deps (get-in prev-effects [id :deps])]
+                                      (cond
+                                        (= 0 curr-tick) true
+                                        (empty? deps) true
+                                        (not= prev-deps deps) true
+                                        :else false))))
+                          (map (fn [{:keys [f]}]
+                                 (f))))}))
+
 (defn component->scenes [ctx ctx-f props-f e]
-  (let [scenes (atom [])]
+  (let [scenes (atom {:timeline []})]
     (letfn [(next-scene [next-local-state]
-              (swap! scenes
-                     (fn [scenes]
-                       (let [{:keys [effects]} (last scenes)]
-                         (let [next-effects {:prev (some-> effects :curr deref)
-                                             :curr (atom {})}
-                               actions (atom {})]
-                           (conj scenes
-                                 {:actions actions
-                                  :render  (bootstrap (count scenes) next-scene next-effects next-local-state
-                                                      ctx ctx-f props-f e)
-                                  :effects next-effects}))))))]
+              (swap! scenes update :timeline conj
+                     (let [next-effects  (atom {})
+                           actions       (atom {})
+                           next-elements (atom {})]
+                       {:actions  actions
+                        :render   (bootstrap next-elements next-scene next-effects next-local-state ctx ctx-f props-f e)
+                        :effects  next-effects
+                        :elements next-elements})))]
       (next-scene {})
       scenes)))
+
+(defn play-scenes!
+  [scenes index]
+  (let [{:keys [timeline]} @scenes]
+    (reduce
+     (fn [prev-scene scene]
+       (mount-scene prev-scene scene))
+     {:ticks 0}
+     (drop index timeline))))
 
 (defn main []
   (js/console.log "Hello world"))

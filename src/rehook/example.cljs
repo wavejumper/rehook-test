@@ -13,6 +13,6 @@
        x)))
 
 (defn simple-ui-test []
-  (rehook.test/component->scenes {} identity clj->js my-cool-ui)
+  (rehook.test/component->scenes {} identity clj->js simple-ui)
 
   )
