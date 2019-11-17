@@ -97,14 +97,16 @@
       scenes)))
 
 (defn play-scenes!
-  [scenes index]
-  (let [{:keys [timeline]} @scenes]
-    (reduce
-     (fn [prev-scene scene]
-       (unmount-scene! prev-scene)
-       (mount-scene prev-scene scene))
-     {:ticks 0}
-     (drop index timeline))))
+  ([scenes]
+   (play-scenes! scenes nil))
+  ([scenes scene]
+   (let [{:keys [timeline]} @scenes]
+     (reduce
+      (fn [prev-scene scene]
+        (unmount-scene! prev-scene)
+        (mount-scene prev-scene scene))
+      {:ticks 0}
+      (drop (get scene :tick 0) timeline)))))
 
 (defn total-scenes [scenes]
   (or (some-> scenes deref :timeline count) 0))

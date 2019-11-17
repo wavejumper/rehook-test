@@ -15,7 +15,7 @@
 
 (deftest simple-ui-test
   (let [scenes (rehook.test/init-scenes {} identity clj->js simple-ui)
-        scene1 (rehook.test/play-scenes! scenes 0)]
+        scene1 (rehook.test/play-scenes! scenes)]
 
     (testing "Rendered value should be equal foo"
       (is (= "foo" (first (rehook.test/children scene1 :my-div)))))
@@ -23,7 +23,7 @@
     (rehook.test/invoke-prop scene1 :my-div :onClick {})
 
     (testing "Rendered value after clicking on div should equal bar"
-      (let [scene2 (rehook.test/play-scenes! scenes 0)]
+      (let [scene2 (rehook.test/play-scenes! scenes scene1)]
         (is (= "bar" (first (rehook.test/children scene2 :my-div))))))))
 
 ;;;; simple-ui-with-atom
@@ -37,12 +37,12 @@
 (deftest simple-ui-atom-test
   (let [my-atom (atom "foo")
         scenes  (rehook.test/init-scenes {:my-atom my-atom} identity clj->js simple-ui-atom)
-        scene1  (rehook.test/play-scenes! scenes 0)]
+        scene1  (rehook.test/play-scenes! scenes)]
 
     (testing "Rendered value should equal foo"
       (is (= "foo" (first (rehook.test/children scene1 :my-div)))))
 
     (reset! my-atom "bar")
 
-    (let [scene2 (rehook.test/play-scenes! scenes 0)]
+    (let [scene2 (rehook.test/play-scenes! scenes scene1)]
       (is (= "bar" (first (rehook.test/children scene2 :my-div)))))))
