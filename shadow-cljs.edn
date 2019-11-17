@@ -1,8 +1,12 @@
-{:deps true 
+{:deps  true
  :nrepl {:port 9000}
 
  :builds
  {:app
-  {:target :node-script
-   :output-to "out/demo-script/script.js"
-   :main rehook.test/main}}}
+  {:target    :node-script
+   :output-to "out/app.js"
+   :main      rehook.test/main}
+
+  :test
+  {:target    :node-test
+   :output-to "out/test.js"}}}

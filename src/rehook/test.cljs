@@ -1,4 +1,5 @@
-(ns rehook.test)
+(ns rehook.test
+  (:require [rehook.core :as rehook]))
 
 (defn ctx-transformer [ctx elem]
   (update ctx :reax.test/id conj (pr-str elem)))
@@ -7,14 +8,12 @@
   [local-state next-scene component-id state-id initial-value]
   (let [curr-state-id (swap! state-id inc)
         current-value (get local-state [component-id curr-state-id] initial-value)]
-    ;; (js/console.log "State called" (pr-str [component-id curr-state-id]))
     [current-value #(when-not (= current-value %)
                       (next-scene (assoc local-state [component-id curr-state-id] %)))]))
 
 (defn use-effect
   [effects component-id effect-id f deps]
   (let [curr-effect-id (swap! effect-id inc)]
-    ;; (js/console.log "Effect called" (pr-str [component-id curr-effect-id]))
     (swap! effects assoc [component-id curr-effect-id]
            {:deps  deps
             :f     f})))
@@ -41,19 +40,13 @@
    (bootstrap next-elements next-scene effects local-state ctx ctx-f props-f e {}))
 
   ([next-elements next-scene effects local-state ctx ctx-f props-f e args & children]
-   #_(js/console.log "Bootstrap being called"
-                   (pr-str {:local-state local-state
-                            :ctx ctx
-                            :e e
-                            :args args}))
-
    (let [ctx          (ctx-transformer (ctx-f ctx e) e)
          component-id (get args :key (:reax.test/id ctx))
          state-id     (atom 0)
          effect-id    (atom 0)]
 
-     (with-redefs [rehook.core/use-state  (partial use-state local-state next-scene component-id state-id)
-                   rehook.core/use-effect (partial use-effect effects component-id effect-id)]
+     (with-redefs [rehook/use-effect (partial use-effect effects component-id effect-id)
+                   rehook/use-state  (partial use-state local-state next-scene component-id state-id)]
 
        (let [$ (partial bootstrap next-elements next-scene effects local-state ctx ctx-f props-f)]
          (into [(handle-type next-elements e ctx $ (props-f args) args children)
@@ -77,9 +70,6 @@
   (let [curr-tick    (:ticks prev-scene)
         curr-effects (some-> scene :effects deref)
         prev-effects (:effects prev-scene)]
-
-    (unmount-scene prev-scene)
-
     {:render         (:render scene)
      :effects        curr-effects
      :ticks          (inc curr-tick)
@@ -88,8 +78,10 @@
                           (filter (fn [[id {:keys [deps]}]]
                                     (let [prev-deps (get-in prev-effects [id :deps])]
                                       (eval-effect? curr-tick prev-deps deps))))
-                          (map (fn [{:keys [f]}]
-                                 (f))))}))
+                          (map (fn [[id {:keys [f]}]]
+                                 (f)
+                                 id))
+                          (doall))}))
 
 (defn component->scenes [ctx ctx-f props-f e]
   (let [scenes (atom {:timeline []})]
@@ -114,5 +106,18 @@
      {:ticks 0}
      (drop index timeline))))
 
+(defn total-scenes [scenes]
+  (or (some-> scenes deref :timeline count) 0))
+
+(defn children [scene id]
+  (-> scene :elements id :children))
+
+(defn get-prop [scene id k]
+  (-> scene :elements id :args k))
+
+(defn invoke-prop [scene id k & args]
+  (let [f (get-prop scene id k)]
+    (apply f args)))
+
 (defn main []
-  (js/console.log "Hello world"))
+(js/console.log "rehook.test ~~~ ♪┏(・o･)┛♪"))
