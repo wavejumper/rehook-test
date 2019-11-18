@@ -13,7 +13,8 @@
 
 (defn mmap [m f a] (->> m (f a) (into (empty m))))
 (defn complete-all [todos v] (swap! todos mmap map #(assoc-in % [1 :done] v)))
-(defn clear-done [todos] (swap! todos mmap remove #(get-in % [1 :done])))
+(defn clear-done [todos]
+  (swap! todos mmap remove #(get-in % [1 :done])))
 
 (defn init [counter todos]
   (let [add-todo (partial add-todo counter todos)]
@@ -58,8 +59,9 @@
                                27 (stop)
                                nil)})))
 
-(defui todo-stats [{:keys [todo-filter]} props $]
-  (let [{:keys [active done] :as xxx} (js->clj props :keywordize-keys true)
+(defui todo-stats [{:keys [todo-filter events]} props $]
+  (let [{:keys [active done]} (js->clj props :keywordize-keys true)
+        clear (:clear-done events)
         [filt set-filt] (rehook/use-atom-path todo-filter [:filter])]
     ($ :div {}
        ($ :span #js {:id "todo-count"}
@@ -78,8 +80,9 @@
                     :onClick #(set-filt :done)}
                 "Completed")))
        (when (pos? done)
-         ($ :button {:id      "clear-completed"
-                     :onClick clear-done}
+         ($ :button {:id        "clear-completed"
+                     :rehook/id :clear-completed
+                     :onClick   clear}
             "Clear completed " done)))))
 
 (defui todo-item [ctx props $]

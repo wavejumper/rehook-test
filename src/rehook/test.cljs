@@ -9,7 +9,9 @@
   [scene-state local-state next-scene component-id state-id initial-value]
   (let [curr-state-id (swap! state-id inc)
         current-value (get local-state [component-id curr-state-id] initial-value)]
-    (swap! scene-state assoc [component-id curr-state-id] current-value)
+    (swap! scene-state assoc [component-id curr-state-id]
+           {:current-value current-value
+            :initial-value initial-value})
     [current-value #(when-not (= current-value %)
                       (next-scene (assoc local-state [component-id curr-state-id] %)))]))
 
@@ -63,7 +65,7 @@
   (doseq [[_ umount-f] (:evaled-effects scene)]
     (umount-f)))
 
-(defn- eval-effect? [ticks prev-deps deps]
+(defn eval-effect? [ticks prev-deps deps]
   (cond
     (= 0 ticks)           true
     (empty? deps)         true
@@ -85,7 +87,7 @@
                                       (eval-effect? curr-tick prev-deps deps))))
                           (map (fn [[id {:keys [f]}]]
                                  [id (f)]))
-                          (doall))}))
+                          (into {}))}))
 
 (defn timeline
   [ctx ctx-f props-f e]
@@ -128,8 +130,9 @@
   (-> scene :elements id :args k))
 
 (defn invoke-prop [scene id k & args]
-  (let [f (get-prop scene id k)]
-    (apply f args)))
+  (if-let [f (get-prop scene id k)]
+    (apply f args)
+    (js/console.warn "No fn found for prop" [id k])))
 
 (defn main []
   (js/console.log "rehook.test ~~~ ♪┏(・o･)┛♪"))

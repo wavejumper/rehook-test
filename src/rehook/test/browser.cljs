@@ -36,9 +36,12 @@
 
 (defn todo-test []
   (let [scenes (rehook.test/timeline todo/system identity clj->js todo/todo-app)]
-    (js/console.log "TODO rendered...")
-    (with-component-mounted [_ (rehook.test/mount! scenes)]
-      @scenes)))
+    (with-component-mounted [scene1 (rehook.test/mount! scenes)]
+
+      (rehook.test/invoke-prop scene1 :clear-completed :onClick {})
+
+      (with-component-mounted [_ (rehook.test/mount! scenes scene1)]
+        @scenes))))
 
 ;;(simple-ui-test)
 
@@ -112,47 +115,106 @@
 
 (defui state
   [_ props $]
-  (let [{:keys [scene]} (js->clj props :keywordize-keys true)
-        state (some-> scene :state deref)]
+  (let [{:keys [scene prev-scene]} (js->clj props :keywordize-keys true)
+        state      (some-> scene :state deref)
+        prev-state (some-> prev-scene :state deref)]
     (if state
       ($ :div {:style {:overflowX "auto"}}
-         (apply $ :table {}
-                ($ :tr {}
-                   ($ :th {} "key")
-                   ($ :th {} "id")
-                   ($ :th {} "value"))
-                (map (fn [[[k id] v]]
-                       ($ :tr {}
-                          ($ :td {} (pr-str k))
-                          ($ :td {} id)
-                          ($ :td {}
-                             ($ (aget Highlight "default")
-                                {:language "clojure"}
-                                (with-out-str
-                                 (zp/zprint v 120))))))
-                     state)))
-      ($ :div {} "No rehook state"))))
+         ($ :table {}
+            ($ :thead {}
+               ($ :tr {}
+                  ($ :th {} "key")
+                  ($ :th {} "index")
+                  ($ :th {} "initial value")
+                  ($ :th {} "previous value")
+                  ($ :th {} "current value")))
+            (apply $ :tbody {}
+                   (map (fn [[[k i :as id] {:keys [current-value initial-value]}]]
+                          ($ :tr {}
+                             ($ :td {} (pr-str k))
+                             ($ :td {} i)
+                             ($ :td {}
+                                ($ (aget Highlight "default")
+                                   {:language "clojure"}
+                                   (with-out-str
+                                    (zp/zprint (if (= current-value initial-value)
+                                                 "..."
+                                                 initial-value)
+                                               120))))
+                             ($ :td {}
+                                ($ (aget Highlight "default")
+                                   {:language "clojure"}
+                                   (with-out-str
+                                    (zp/zprint
+                                     (if-let [previous-value (get-in prev-state [id :current-value])]
+                                       (if (= current-value previous-value)
+                                         "..."
+                                         previous-value))
+                                     120))))
+                             ($ :td {}
+                                ($ (aget Highlight "default")
+                                   {:language "clojure"}
+                                   (with-out-str
+                                    (zp/zprint current-value 120))))))
+                        state))))
+      ($ :div {} "No state mounted"))))
 
 (defui effects
   [_ props $]
-  (let [{:keys [scene]} (js->clj props :keywordize-keys true)
-        effects (some-> scene :effects deref)]
+  (let [{:keys [scene prev-scene index]} (js->clj props :keywordize-keys true)
+        effects (some-> scene :effects deref)
+        prev-effects (some-> prev-scene :effects deref)]
+
     (if effects
       ($ :div {:style {:overflowX "auto"}}
-         (apply $ :table {}
-                ($ :tr {}
-                   ($ :th {} "key")
-                   ($ :th {} "id")
-                   ($ :th {} "deps")
-                   ($ :th {} "evaled?"))
-                (map (fn [[[k id] {:keys [deps]}]]
-                       ($ :tr {}
-                          ($ :td {} (pr-str k))
-                          ($ :td {} id)
-                          ($ :td {} (pr-str deps))
-                          ($ :td {} "false")))
-                     effects)))
+         ($ :table {}
+            ($ :thead {}
+               ($ :tr {}
+                  ($ :th {} "key")
+                  ($ :th {} "index")
+                  ($ :th {} "prev deps")
+                  ($ :th {} "deps")
+                  ($ :th {} "evaled?")))
+            (apply $ :tbody {}
+                   (map (fn [[[k i :as id] {:keys [deps]}]]
+                          (let [prev-deps (get-in prev-effects [id :deps])]
+                            ($ :tr {}
+                               ($ :td {} (pr-str k))
+                               ($ :td {} i)
+                               ($ :td {} (pr-str prev-deps))
+                               ($ :td {} (pr-str deps))
+                               ($ :td {} (pr-str (rehook.test/eval-effect? index prev-deps deps))))))
+                        effects))))
       ($ :div {} "No effects mounted"))))
+
+(defui tags
+  [_ props $]
+  (let [{:keys [scene prev-scene]} (js->clj props :keywordize-keys true)
+        elements      (some-> scene :elements deref not-empty)
+        prev-elements (some-> scene :elements deref)]
+    (if  elements
+      ($ :div {:style {:overflowX "auto"}}
+         ($ :table {}
+            ($ :thead {}
+               ($ :tr {}
+                  ($ :th {} "key")
+                  ($ :th {} "props")
+                  ($ :th {} "evaled")
+                  ($ :th {} "children")))
+
+            (apply $ :tbody {}
+                   (map (fn [[k {:keys [args evaled children]}]]
+                          ($ :tr {}
+                             ($ :td {} (pr-str k))
+                             ($ :td {}
+                                ($ (aget Highlight "default")
+                                   {:language "clojure"}
+                                   (with-out-str
+                                    (zp/zprint args 80))))
+                             ($ :td {} (pr-str evaled))
+                             ($ :td {} (pr-str children))))
+                        elements))))
+      ($ :div {} "No tags found. Stick :rehook/id into one of your props :)"))))
 
 (defui elements
   [_ props $]
@@ -186,6 +248,7 @@
 (defui render-scene
   [_ props $]
   (let [[show-summary? set-show-summary] (rehook/use-state true)
+        [show-tags? set-show-tags] (rehook/use-state false)
         [show-hiccup? set-show-hiccup] (rehook/use-state false)
         [show-state? set-show-state] (rehook/use-state false)
         [show-effects? set-show-effects] (rehook/use-state false)
@@ -201,18 +264,27 @@
        (when show-summary?
          ($ :p {} "3/3 assertions passed"))
 
+       ($ toggle-heading {:title "tags"
+                          :onClick set-show-tags
+                          :value show-tags?})
+       (when show-tags?
+         ($ tags {:scene scene
+                  :prev-scene prev-scene}))
+
        ($ toggle-heading {:title "state"
                           :onClick set-show-state
                           :value show-state?})
        (when show-state?
-         ($ state {:scene scene}))
-
+         ($ state {:scene scene
+                   :prev-scene prev-scene}))
 
        ($ toggle-heading {:title "effects"
                           :onClick set-show-effects
                           :value show-effects?})
        (when show-effects?
-         ($ effects {:scene scene}))
+         ($ effects {:scene scene
+                     :prev-scene prev-scene
+                     :index index}))
 
 
        ($ toggle-heading {:title   "hiccup"
@@ -238,10 +310,12 @@
                   :prev-scene prev-scene
                   :scene scene})))))
 
+(def scenes
+  (todo-test))
+
 (defui testcard
   [_ _ $]
-  (let [scenes   (todo-test)
-        timeline (:timeline scenes)
+  (let [timeline (:timeline scenes)
         [current-index set-index] (rehook/use-state 0)]
     ($ :div {:style {:border "1px solid #d1d5da"
                      :borderRadius "3px"
@@ -300,11 +374,11 @@
      ($ :h2 {} "Testing")
 
      ($ :p {} "rehook allows you to test your entire application - from data layer to view.")
-     ($ :p {} "rehook-test supports:"
-        ($ :ul {}
-           ($ :li {} "both react-dom and react-native")
-           ($ :li {} "cljs.test + nodejs target for headless/CI")
-           ($ :li {} "browser for devcards-like interactive development")))
+     ($ :p {} "rehook-test supports:")
+     ($ :ul {}
+        ($ :li {} "both react-dom and react-native")
+        ($ :li {} "cljs.test + nodejs target for headless/CI")
+        ($ :li {} "browser for devcards-like interactive development"))
 
      ($ :h2 {} "Time-travel driven development")
 
@@ -330,9 +404,7 @@
      ($ :ul {}
         ($ :li {}
            "I want Github-level diffs between the previous scene and the next scene's hiccup.")
-        ($ :li {} "How can we use clojure spec and perhaps property based testing to put this thing on steroids?")
-        )
-     ))
+        ($ :li {} "How can we use clojure spec and perhaps property based testing to put this thing on steroids?"))))
 
 (defn ^:dev/after-load render! []
   (js/console.log "rendering rehook.test ~~~ ♪┏(・o･)┛♪")
