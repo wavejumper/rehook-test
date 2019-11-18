@@ -6,14 +6,15 @@
   (update ctx :reax.test/id conj (pr-str elem)))
 
 (defn- use-state
-  [local-state next-scene component-id state-id initial-value]
+  [scene-state local-state next-scene component-id state-id initial-value]
   (let [curr-state-id (swap! state-id inc)
         current-value (get local-state [component-id curr-state-id] initial-value)]
+    (swap! scene-state assoc [component-id curr-state-id] current-value)
     [current-value #(when-not (= current-value %)
                       (next-scene (assoc local-state [component-id curr-state-id] %)))]))
 
 (defn- use-effect
-  [effects component-id effect-id f deps]
+  [effects component-id effect-id f & [deps]]
   (let [curr-effect-id (swap! effect-id inc)]
     (swap! effects assoc [component-id curr-effect-id]
            {:deps  deps
@@ -26,33 +27,37 @@
                    (if (fn? ret)
                      (ret args)
                      ret))
-                 e)]
+                 e)
+        elem (cond
+               (keyword? e) (if (empty? children)
+                              [e args]
+                              (into [e args] children))
+               (sequential? e) (into [:*] e)
+               (fn? e)         evaled)]
     (if-let [id (:rehook/id raw-args)]
       (let [elem-meta {:e        e
                        :args     raw-args
                        :evaled   evaled
                        :children children}]
         (swap! next-elements assoc id elem-meta)
-        evaled)
-      evaled)))
+        elem)
+      elem)))
 
 (defn- bootstrap
-  ([next-elements next-scene effects local-state ctx ctx-f props-f e]
-   (bootstrap next-elements next-scene effects local-state ctx ctx-f props-f e {}))
+  ([next-elements next-scene scene-state effects local-state ctx ctx-f props-f e]
+   (bootstrap next-elements next-scene scene-state effects local-state ctx ctx-f props-f e {}))
 
-  ([next-elements next-scene effects local-state ctx ctx-f props-f e args & children]
+  ([next-elements next-scene scene-state effects local-state ctx ctx-f props-f e args & children]
    (let [ctx          (ctx-transformer (ctx-f ctx e) e)
          component-id (get args :key (:reax.test/id ctx))
          state-id     (atom 0)
          effect-id    (atom 0)]
 
      (with-redefs [rehook/use-effect (partial use-effect effects component-id effect-id)
-                   rehook/use-state  (partial use-state local-state next-scene component-id state-id)]
+                   rehook/use-state  (partial use-state scene-state local-state next-scene component-id state-id)]
 
-       (let [$ (partial bootstrap next-elements next-scene effects local-state ctx ctx-f props-f)]
-         (into [(handle-type next-elements e ctx $ (props-f args) args children)
-                (props-f args)]
-               children))))))
+       (let [$ (partial bootstrap next-elements next-scene scene-state effects local-state ctx ctx-f props-f)]
+         (handle-type next-elements e ctx $ (props-f args) args children))))))
 
 (defn unmount! [scene]
   (doseq [[_ umount-f] (:evaled-effects scene)]
@@ -90,11 +95,13 @@
                      (let [next-effects  (atom {})
                            actions       (atom {})
                            next-elements (atom {})
-                           render        (bootstrap next-elements next-scene next-effects next-local-state ctx ctx-f props-f e)]
+                           scene-state   (atom {})
+                           render        (bootstrap next-elements next-scene scene-state next-effects next-local-state ctx ctx-f props-f e)]
                        {:actions  actions
                         :render   render
-                        :dom      #(first render)
+                        :dom      #(do render)
                         :effects  next-effects
+                        :state    scene-state
                         :elements next-elements})))]
       (next-scene {})
       scenes)))

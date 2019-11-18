@@ -11,7 +11,8 @@
             [clojure.string :as str]
             [sablono.core :as html :refer-macros [html]]
             [clojure.walk :as walk]
-            [clojure.data :as data]))
+            [clojure.data :as data]
+            [rehook.demo.todo :as todo]))
 
 (defui simple-ui
   [_ _ $]
@@ -32,6 +33,12 @@
         (with-component-mounted [scene2 (rehook.test/mount! scenes scene1)]
           (is (= "bar" (first (rehook.test/children scene2 :my-div)))))))
     @scenes))
+
+(defn todo-test []
+  (let [scenes (rehook.test/timeline todo/system identity clj->js todo/todo-app)]
+    (js/console.log "TODO rendered...")
+    (with-component-mounted [_ (rehook.test/mount! scenes)]
+      @scenes)))
 
 ;;(simple-ui-test)
 
@@ -64,7 +71,7 @@
        {:language "clojure"
         :key      (scene-key index "code")}
        (with-out-str
-        (zp/zprint ((:dom scene)) 80)))))
+        (zp/zprint (js->clj ((:dom scene))) 80)))))
 
 (defui diff
   [_ props $]
@@ -79,15 +86,73 @@
                     ((:dom prev-scene)))
          80)))))
 
+(defui demo-dsl
+  [_ props $]
+  ($ (aget Highlight "default")
+     {:language "clojure"}
+     (with-out-str
+      (zp/zprint
+       [[:assert ["Initial rendered value should be equal foo"
+                  (list '= "foo" (list 'first (list 'rehook.test/children '% :my-div)))]]
+
+        [:io! (list 'rehook.test/invoke-prop '% :my-div :onClick {})]
+
+        [:assert ["Rendered value after clicking on div should equal bar"
+                  (list '= "bar" (list 'first (list 'rehook.test/children '% :my-div)))]]]
+       80
+       )
+
+      )))
+
 (defui dom
   [_ props $]
   (let [{:keys [scene]} (js->clj props :keywordize-keys true)]
     ($ (aget Frame "default") {}
        (html (js->clj ((:dom scene)))))))
 
+(defui state
+  [_ props $]
+  (let [{:keys [scene]} (js->clj props :keywordize-keys true)
+        state (some-> scene :state deref)]
+    (if state
+      ($ :div {:style {:overflowX "auto"}}
+         (apply $ :table {}
+                ($ :tr {}
+                   ($ :th {} "key")
+                   ($ :th {} "id")
+                   ($ :th {} "value"))
+                (map (fn [[[k id] v]]
+                       ($ :tr {}
+                          ($ :td {} (pr-str k))
+                          ($ :td {} id)
+                          ($ :td {}
+                             ($ (aget Highlight "default")
+                                {:language "clojure"}
+                                (with-out-str
+                                 (zp/zprint v 120))))))
+                     state)))
+      ($ :div {} "No rehook state"))))
+
 (defui effects
   [_ props $]
-  ($ :div {} "effects"))
+  (let [{:keys [scene]} (js->clj props :keywordize-keys true)
+        effects (some-> scene :effects deref)]
+    (if effects
+      ($ :div {:style {:overflowX "auto"}}
+         (apply $ :table {}
+                ($ :tr {}
+                   ($ :th {} "key")
+                   ($ :th {} "id")
+                   ($ :th {} "deps")
+                   ($ :th {} "evaled?"))
+                (map (fn [[[k id] {:keys [deps]}]]
+                       ($ :tr {}
+                          ($ :td {} (pr-str k))
+                          ($ :td {} id)
+                          ($ :td {} (pr-str deps))
+                          ($ :td {} "false")))
+                     effects)))
+      ($ :div {} "No effects mounted"))))
 
 (defui elements
   [_ props $]
@@ -104,10 +169,10 @@
         on-click (aget props "onClick")
         value    (aget props "value")]
     ($ :div {:style {:display        "flex"
-                     :justifyContent "start"
+                     :justifyContent "space-between"
                      :alignItems     "center"
                      :flexWrap       "wrap"
-                     :border-bottom  "1px solid #ccc"
+                     :borderBottom   "1px solid #ccc"
                      :maxHeight      "60px"}}
        ($ :h2 {:style {:marginRight "20px"}}
           title)
@@ -121,7 +186,9 @@
 (defui render-scene
   [_ props $]
   (let [[show-summary? set-show-summary] (rehook/use-state true)
-        [show-hiccup? set-show-hiccup] (rehook/use-state true)
+        [show-hiccup? set-show-hiccup] (rehook/use-state false)
+        [show-state? set-show-state] (rehook/use-state false)
+        [show-effects? set-show-effects] (rehook/use-state false)
         [show-dom? set-show-dom] (rehook/use-state false)
         [show-diff? set-show-diff] (rehook/use-state false)
 
@@ -133,6 +200,20 @@
 
        (when show-summary?
          ($ :p {} "3/3 assertions passed"))
+
+       ($ toggle-heading {:title "state"
+                          :onClick set-show-state
+                          :value show-state?})
+       (when show-state?
+         ($ state {:scene scene}))
+
+
+       ($ toggle-heading {:title "effects"
+                          :onClick set-show-effects
+                          :value show-effects?})
+       (when show-effects?
+         ($ effects {:scene scene}))
+
 
        ($ toggle-heading {:title   "hiccup"
                           :onClick set-show-hiccup
@@ -159,10 +240,11 @@
 
 (defui testcard
   [_ _ $]
-  (let [scenes   (simple-ui-test)
+  (let [scenes   (todo-test)
         timeline (:timeline scenes)
         [current-index set-index] (rehook/use-state 0)]
-    ($ :div {:style {:border  "1px solid #ccc"
+    ($ :div {:style {:border "1px solid #d1d5da"
+                     :borderRadius "3px"
                      :padding "15px"}}
        ($ :h2 {} "Test scenario 1")
 
@@ -190,8 +272,9 @@
 (defui heading
   [_ _ $]
   ($ :h1 {}
-     ($ :a {:href "https://github.com/wavejumper/rehook-test"}
-        "rehook-test")))
+     ($ :a {:href "https://github.com/wavejumper/rehook"
+            :target "_blank"}
+        "rehook")))
 
 (defui rehook-test-container
   [_ _ $]
@@ -205,7 +288,51 @@
 
      ($ heading)
 
-     ($ testcard)))
+
+     ($ :h2 {} "About")
+     ($ :p {} "rehook is my attempt to address the pitfalls of front-end development, and attempt to push it forward.")
+     ($ :p {} "rehook is built from small, modular blocks - each with an explicit notion of time, and a data-first design.")
+     ($ :p {} "As rehook is modular, each layer builds upon the last. Each layer adds a new idea: testing, syntax, devtools, patterns.")
+     ($ :p {} "As rehook is modular, there is not yet a cohesive resource on architecting a rehook app. ")
+     ($ :p {} "This is all a work in progress. Please check back :)")
+
+
+     ($ :h2 {} "Testing")
+
+     ($ :p {} "rehook allows you to test your entire application - from data layer to view.")
+     ($ :p {} "rehook-test supports:"
+        ($ :ul {}
+           ($ :li {} "both react-dom and react-native")
+           ($ :li {} "cljs.test + nodejs target for headless/CI")
+           ($ :li {} "browser for devcards-like interactive development")))
+
+     ($ :h2 {} "Time-travel driven development")
+
+     ($ :p {} "Writing tests for rehook is not dissimilar to how you might test with datomic or kafka's TopologyTestDriver.")
+     ($ :p {} "Each state change produces a snapshot in time that rehook captures as a 'scene'.")
+
+     ($ :p {} "Like kafka's ToplogyTestDriver, the tests run in a simulated library runtime.")
+     ($ :p {} "However, a read-only snapshot of the dom can be rendered for each scene! This allows you to catch any runtime errors caused by invalid inputs for each re-render.")
+
+     ($ :h2 {} "Usage")
+     ($ :p {} "Documentation on usage is for now a WIP. Please check the unit tests written for "
+        ($ :a {:href ""} "reax-synth")
+        " and "
+        ($ :a {:href ""} "todomvc"))
+
+     ($ :h2 {} "Demo")
+
+     ($ :p {} "The demo below is the output of the unit tests written for rehook's own todomvc.")
+
+     ($ testcard)
+
+     ($ :h2 {} "TODOs")
+     ($ :ul {}
+        ($ :li {}
+           "I want Github-level diffs between the previous scene and the next scene's hiccup.")
+        ($ :li {} "How can we use clojure spec and perhaps property based testing to put this thing on steroids?")
+        )
+     ))
 
 (defn ^:dev/after-load render! []
   (js/console.log "rendering rehook.test ~~~ ♪┏(・o･)┛♪")
