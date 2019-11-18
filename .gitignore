@@ -4,3 +4,5 @@
 out/
 node_modules/
 *.iml
+public/js/
+*.DS_Store

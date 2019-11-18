@@ -1,5 +1,6 @@
 (ns rehook.test
-  (:require [rehook.core :as rehook]))
+  (:require [rehook.core :as rehook]
+            [rehook.dom.browser :as browser]))
 
 (defn- ctx-transformer [ctx elem]
   (update ctx :reax.test/id conj (pr-str elem)))
@@ -88,9 +89,11 @@
               (swap! scenes update :timeline conj
                      (let [next-effects  (atom {})
                            actions       (atom {})
-                           next-elements (atom {})]
+                           next-elements (atom {})
+                           render        (bootstrap next-elements next-scene next-effects next-local-state ctx ctx-f props-f e)]
                        {:actions  actions
-                        :render   (bootstrap next-elements next-scene next-effects next-local-state ctx ctx-f props-f e)
+                        :render   render
+                        :dom      #(first render)
                         :effects  next-effects
                         :elements next-elements})))]
       (next-scene {})

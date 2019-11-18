@@ -1,11 +1,20 @@
 {:deps  true
  :nrepl {:port 9000}
+ :dev-http {8000 "public"}
 
  :builds
  {:app
   {:target    :node-script
    :output-to "out/app.js"
    :main      rehook.test/main}
+
+  :browser
+  {:target :browser
+   :output-dir "public/js"
+   :asset-path "/js"
+   :devtools {:preloads [devtools.preload]}
+   :modules {:main {:entries [rehook.test.browser]
+                    :init-fn rehook.test.browser/main}}}
 
   :test
   {:target    :node-test

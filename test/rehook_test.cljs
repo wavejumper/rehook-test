@@ -25,6 +25,25 @@
         (with-component-mounted [scene2 (rehook.test/mount! scenes scene1)]
           (is (= "bar" (first (rehook.test/children scene2 :my-div)))))))))
 
+(defn run! [timeline & actions]
+  (reduce
+   (fn [current-state [id args]]
+     (case id
+       :mount!    []
+       :io!       []
+       :assert    []))
+   {:prev-scene nil}
+   actions))
+
+(run! (rehook.test/timeline {} identity clj->js simple-ui)
+  :assert ["Initial rendered value should be equal foo"
+           #(= "foo" (first (rehook.test/children % :my-div)))]
+
+  :io!    #(rehook.test/invoke-prop % :my-div :onClick {})
+
+  :assert ["Rendered value after clicking on div should equal bar"
+           #(= "bar" (first (rehook.test/children % :my-div)))])
+
 ;;;; simple-ui-with-atom
 
 (defui simple-ui-atom
