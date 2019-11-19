@@ -88,24 +88,6 @@
                     ((:dom prev-scene)))
          80)))))
 
-(defui demo-dsl
-  [_ props $]
-  ($ (aget Highlight "default")
-     {:language "clojure"}
-     (with-out-str
-      (zp/zprint
-       [[:assert ["Initial rendered value should be equal foo"
-                  (list '= "foo" (list 'first (list 'rehook.test/children '% :my-div)))]]
-
-        [:io! (list 'rehook.test/invoke-prop '% :my-div :onClick {})]
-
-        [:assert ["Rendered value after clicking on div should equal bar"
-                  (list '= "bar" (list 'first (list 'rehook.test/children '% :my-div)))]]]
-       80
-       )
-
-      )))
-
 (defui dom
   [_ props $]
   (let [{:keys [scene]} (js->clj props :keywordize-keys true)
@@ -258,61 +240,68 @@
         [show-effects? set-show-effects] (rehook/use-state false)
         [show-dom? set-show-dom] (rehook/use-state false)
         [show-diff? set-show-diff] (rehook/use-state false)
-
         {:keys [scene prev-scene index]} (js->clj props :keywordize-keys true)]
-    ($ :div {}
-       ($ toggle-heading {:title "summary"
-                          :onClick set-show-summary
-                          :value show-summary?})
+
+    (html $
+      [:div {}
+       [toggle-heading {:title   "summary"
+                        :onClick set-show-summary
+                        :value   show-summary?}]
 
        (when show-summary?
-         ($ :p {} "3/3 assertions passed"))
+         [:p {} "3/3 assertions passed"])
 
-       ($ toggle-heading {:title "tags"
-                          :onClick set-show-tags
-                          :value show-tags?})
+       [toggle-heading {:title   "tags"
+                        :onClick set-show-tags
+                        :value   show-tags?}]
+
        (when show-tags?
-         ($ tags {:scene scene
-                  :prev-scene prev-scene}))
 
-       ($ toggle-heading {:title "state"
-                          :onClick set-show-state
-                          :value show-state?})
+         (js/console.log "SHOW TAGS => " tags)
+
+         [tags {:scene      scene
+                :prev-scene prev-scene}
+          "foo"])
+
+       [toggle-heading {:title   "state"
+                        :onClick set-show-state
+                        :value   show-state?}]
+
        (when show-state?
-         ($ state {:scene scene
-                   :prev-scene prev-scene}))
+         [state {:scene      scene
+                 :prev-scene prev-scene}])
 
-       ($ toggle-heading {:title "effects"
-                          :onClick set-show-effects
-                          :value show-effects?})
+       [toggle-heading {:title   "effects"
+                        :onClick set-show-effects
+                        :value   show-effects?}]
+
        (when show-effects?
-         ($ effects {:scene scene
-                     :prev-scene prev-scene
-                     :index index}))
+         [effects {:scene      scene
+                   :prev-scene prev-scene
+                   :index      index}])
 
-
-       ($ toggle-heading {:title   "hiccup"
-                          :onClick set-show-hiccup
-                          :value   show-hiccup?})
+       [toggle-heading {:title   "hiccup"
+                        :onClick set-show-hiccup
+                        :value   show-hiccup?}]
        (when show-hiccup?
-         ($ code {:scene scene}))
+         [code {:scene scene}])
 
-       ($ toggle-heading {:title   "dom"
-                          :onClick set-show-dom
-                          :value   show-dom?})
+       [toggle-heading {:title   "dom"
+                        :onClick set-show-dom
+                        :value   show-dom?}]
        (when show-dom?
-         ($ dom {:index index
-                 :scene scene}))
+         [dom {:index index
+               :scene scene}])
 
        (when prev-scene
-         ($ toggle-heading {:title   "diff"
-                            :onClick set-show-diff
-                            :value   show-diff?}))
+         [toggle-heading {:title   "diff"
+                          :onClick set-show-diff
+                          :value   show-diff?}])
 
        (when (and prev-scene show-diff?)
-         ($ diff {:index index
-                  :prev-scene prev-scene
-                  :scene scene})))))
+         [diff {:index      index
+                :prev-scene prev-scene
+                :scene      scene}])])))
 
 (def scenes
   (todo-test))
