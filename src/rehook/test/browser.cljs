@@ -1,7 +1,7 @@
 (ns rehook.test.browser
   (:require [rehook.test :as rehook.test :refer-macros [with-component-mounted]]
             [rehook.core :as rehook]
-            [rehook.dom :refer-macros [defui]]
+            [rehook.dom :as dom :refer-macros [defui ui html]]
             [cljs.test :refer-macros [deftest is testing]]
             [rehook.dom.browser :as dom.browser]
             ["react-dom" :as react-dom]
@@ -9,7 +9,6 @@
             ["react-frame-component" :as Frame]
             [zprint.core :as zp]
             [clojure.string :as str]
-            [sablono.core :as html :refer-macros [html]]
             [clojure.walk :as walk]
             [clojure.data :as data]
             [rehook.demo.todo :as todo]))
@@ -109,9 +108,14 @@
 
 (defui dom
   [_ props $]
-  (let [{:keys [scene]} (js->clj props :keywordize-keys true)]
+  (let [{:keys [scene]} (js->clj props :keywordize-keys true)
+        dom (:dom scene)]
     ($ (aget Frame "default") {}
-       (html (js->clj ((:dom scene)))))))
+       ;; bootstrap iframe with 'sandboxed' ctx
+       (dom.browser/bootstrap
+        {} identity identity
+        (ui [_ _ $]
+          (html $ (dom)))))))
 
 (defui state
   [_ props $]
@@ -361,7 +365,6 @@
                    :color "#24292e"}}
 
      ($ heading)
-
 
      ($ :h2 {} "About")
      ($ :p {} "rehook is my attempt to address the pitfalls of front-end development, and attempt to push it forward.")
