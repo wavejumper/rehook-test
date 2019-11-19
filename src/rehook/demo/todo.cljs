@@ -150,7 +150,7 @@
           ($ :footer {:id "footer"}
              ($ :p {} "Double-click to edit a todo"))))))
 
-(defonce system
+(defn system []
   (let [sys (new-system)]
     ((:init sys))
     sys))

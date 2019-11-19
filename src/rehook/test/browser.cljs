@@ -13,6 +13,14 @@
             [clojure.data :as data]
             [rehook.demo.todo :as todo]))
 
+(defn current-scene [scenes index]
+  (get-in scenes [:timeline index]))
+
+(defn previous-scene [scenes index]
+  (let [prev-index (dec index)]
+    (when-not (neg? prev-index)
+      (current-scene scenes index))))
+
 (defui simple-ui
   [_ _ $]
   (let [[x set-x] (rehook/use-state "foo")]
@@ -34,7 +42,7 @@
     @scenes))
 
 (defn todo-test []
-  (let [scenes (rehook.test/timeline todo/system identity clj->js todo/todo-app)]
+  (let [scenes (rehook.test/timeline (todo/system) identity clj->js todo/todo-app)]
     (with-component-mounted [scene1 (rehook.test/mount! scenes)]
 
       (rehook.test/invoke-prop scene1 :clear-completed :onClick {})
@@ -67,8 +75,9 @@
   (str "scene-" index "-" (str/join "-" words)))
 
 (defui code
-  [_ props $]
-  (let [{:keys [scene prev-scene index]} (js->clj props :keywordize-keys true)]
+  [{:keys [scenes]} props $]
+  (let [{:keys [index]} (js->clj props :keywordize-keys true)
+        scene (current-scene scenes index)]
     ($ (aget Highlight "default")
        {:language "clojure"
         :key      (scene-key index "code")}
@@ -76,8 +85,10 @@
         (zp/zprint (js->clj ((:dom scene))) 80)))))
 
 (defui diff
-  [_ props $]
-  (let [{:keys [scene prev-scene index]} (js->clj props :keywordize-keys true)]
+  [{:keys [scenes]} props $]
+  (let [{:keys [index]} (js->clj props :keywordize-keys true)
+        scene (current-scene scenes index)
+        prev-scene (previous-scene scenes index)]
     ($ (aget Highlight "default")
        {:language "clojure"
         :key      (scene-key index "code-diff")}
@@ -89,9 +100,10 @@
          80)))))
 
 (defui dom
-  [_ props $]
-  (let [{:keys [scene]} (js->clj props :keywordize-keys true)
-        dom (:dom scene)]
+  [{:keys [scenes]} props $]
+  (let [{:keys [index]} (js->clj props :keywordize-keys true)
+        scene (current-scene scenes index)
+        dom   (:dom scene)]
     ($ (aget Frame "default") {}
        ;; bootstrap iframe with 'sandboxed' ctx
        (dom.browser/bootstrap
@@ -100,8 +112,10 @@
           (html $ (dom)))))))
 
 (defui state
-  [_ props $]
-  (let [{:keys [scene prev-scene]} (js->clj props :keywordize-keys true)
+  [{:keys [scenes]} props $]
+  (let [{:keys [index]} (js->clj props :keywordize-keys true)
+        scene      (current-scene scenes index)
+        prev-scene (previous-scene scenes index)
         state      (some-> scene :state deref)
         prev-state (some-> prev-scene :state deref)]
     (if state
@@ -146,11 +160,12 @@
       ($ :div {} "No state mounted"))))
 
 (defui effects
-  [_ props $]
-  (let [{:keys [scene prev-scene index]} (js->clj props :keywordize-keys true)
-        effects (some-> scene :effects deref)
+  [{:keys [scenes]} props $]
+  (let [{:keys [index]} (js->clj props :keywordize-keys true)
+        scene        (current-scene scenes index)
+        prev-scene   (previous-scene scenes index)
+        effects      (some-> scene :effects deref)
         prev-effects (some-> prev-scene :effects deref)]
-
     (if effects
       ($ :div {:style {:overflowX "auto"}}
          ($ :table {}
@@ -174,10 +189,12 @@
       ($ :div {} "No effects mounted"))))
 
 (defui tags
-  [_ props $]
-  (let [{:keys [scene prev-scene]} (js->clj props :keywordize-keys true)
+  [{:keys [scenes]} props $]
+  (let [{:keys [index]} (js->clj props :keywordize-keys true)
+        scene         (current-scene scenes index)
+        prev-scene    (previous-scene scenes index)
         elements      (some-> scene :elements deref not-empty)
-        prev-elements (some-> scene :elements deref)]
+        prev-elements (some-> prev-scene :elements deref)]
     (if  elements
       ($ :div {:style {:overflowX "auto"}}
          ($ :table {}
@@ -203,8 +220,9 @@
       ($ :div {} "No tags found. Stick :rehook/id into one of your props :)"))))
 
 (defui elements
-  [_ props $]
-  (let [{:keys [scene index]} (js->clj props :keywordize-keys true)
+  [{:keys [scenes]} props $]
+  (let [{:keys [index]} (js->clj props :keywordize-keys true)
+        scene (current-scene scenes index)
         elements (some-> scene :elements deref)]
     (mapv (fn [[k args]]
             ($ :div {:key (scene-key index "elements" (name k))}
@@ -232,15 +250,16 @@
           (if value "hide" "show")))))
 
 (defui render-scene
-  [_ props $]
-  (let [[show-summary? set-show-summary] (rehook/use-state true)
+  [{:keys [scenes]} props $]
+  (let [{:keys [index]} (js->clj props :keywordize-keys true)
+        prev-scene (previous-scene scenes index)
+        [show-summary? set-show-summary] (rehook/use-state true)
         [show-tags? set-show-tags] (rehook/use-state false)
         [show-hiccup? set-show-hiccup] (rehook/use-state false)
         [show-state? set-show-state] (rehook/use-state false)
         [show-effects? set-show-effects] (rehook/use-state false)
         [show-dom? set-show-dom] (rehook/use-state false)
-        [show-diff? set-show-diff] (rehook/use-state false)
-        {:keys [scene prev-scene index]} (js->clj props :keywordize-keys true)]
+        [show-diff? set-show-diff] (rehook/use-state false)]
 
     (html $
       [:div {}
@@ -256,42 +275,33 @@
                         :value   show-tags?}]
 
        (when show-tags?
-
-         (js/console.log "SHOW TAGS => " tags)
-
-         [tags {:scene      scene
-                :prev-scene prev-scene}
-          "foo"])
+         [tags {:index index}])
 
        [toggle-heading {:title   "state"
                         :onClick set-show-state
                         :value   show-state?}]
 
        (when show-state?
-         [state {:scene      scene
-                 :prev-scene prev-scene}])
+         [state {:index index}])
 
        [toggle-heading {:title   "effects"
                         :onClick set-show-effects
                         :value   show-effects?}]
 
        (when show-effects?
-         [effects {:scene      scene
-                   :prev-scene prev-scene
-                   :index      index}])
+         [effects {:index index}])
 
        [toggle-heading {:title   "hiccup"
                         :onClick set-show-hiccup
                         :value   show-hiccup?}]
        (when show-hiccup?
-         [code {:scene scene}])
+         [code {:index index}])
 
        [toggle-heading {:title   "dom"
                         :onClick set-show-dom
                         :value   show-dom?}]
        (when show-dom?
-         [dom {:index index
-               :scene scene}])
+         [dom {:index index}])
 
        (when prev-scene
          [toggle-heading {:title   "diff"
@@ -299,15 +309,10 @@
                           :value   show-diff?}])
 
        (when (and prev-scene show-diff?)
-         [diff {:index      index
-                :prev-scene prev-scene
-                :scene      scene}])])))
-
-(def scenes
-  (todo-test))
+         [diff {:index index}])])))
 
 (defui testcard
-  [_ _ $]
+  [{:keys [scenes]} _ $]
   (let [timeline (:timeline scenes)
         [current-index set-index] (rehook/use-state 0)]
     ($ :div {:style {:border "1px solid #d1d5da"
@@ -331,10 +336,7 @@
 
        ($ render-scene
           {:key   (str "scene-" current-index)
-           :index current-index
-           :prev-scene (when (pos? current-index)
-                         (get timeline (dec current-index)))
-           :scene (get timeline current-index)}))))
+           :index current-index}))))
 
 (defui heading
   [_ _ $]
@@ -399,10 +401,11 @@
         ($ :li {} "How can we use clojure spec and perhaps property based testing to put this thing on steroids?"))))
 
 (defn ^:dev/after-load render! []
-  (js/console.log "rendering rehook.test ~~~ ♪┏(・o･)┛♪")
-  (react-dom/render
-   (dom.browser/bootstrap {} identity clj->js rehook-test-container)
-   (js/document.getElementById "app")))
+  (let [scenes (todo-test)]
+    (js/console.log "rendering rehook.test ~~~ ♪┏(・o･)┛♪")
+    (react-dom/render
+     (dom.browser/bootstrap {:scenes scenes} identity clj->js rehook-test-container)
+     (js/document.getElementById "app"))))
 
 (defn main []
   (render!))
