@@ -13,6 +13,9 @@
             [clojure.data :as data]
             [rehook.demo.todo :as todo]))
 
+(def highlight
+  (aget Highlight "default"))
+
 (defn current-scene [scenes index]
   (get-in scenes [:timeline index]))
 
@@ -195,28 +198,34 @@
         prev-scene    (previous-scene scenes index)
         elements      (some-> scene :elements deref not-empty)
         prev-elements (some-> prev-scene :elements deref)]
-    (if  elements
-      ($ :div {:style {:overflowX "auto"}}
-         ($ :table {}
-            ($ :thead {}
-               ($ :tr {}
-                  ($ :th {} "key")
-                  ($ :th {} "props")
-                  ($ :th {} "evaled")
-                  ($ :th {} "children")))
-
-            (apply $ :tbody {}
-                   (map (fn [[k {:keys [args evaled children]}]]
-                          ($ :tr {}
-                             ($ :td {} (pr-str k))
-                             ($ :td {}
-                                ($ (aget Highlight "default")
+    (if elements
+      (html $
+        [:div {:style {:overflowX "auto"}}
+         [:table {}
+          [:thead {}
+           [:tr {}
+            [:th {} "key"]
+            [:th {} "prev props"]
+            [:th {} "props"]
+            [:th {} "evaled"]
+            [:th {} "children"]]]
+          (into [:tbody {}]
+                (map (fn [[k {:keys [args evaled children]}]]
+                       (let [prev-args (get-in prev-elements [k :args])]
+                         [:tr {:key (pr-str index "-" k)}
+                          [:td {} (pr-str k)]
+                          [:td {} [highlight
+                                   {:language "clojure"}
+                                   (if (= prev-args args)
+                                     "..."
+                                     (with-out-str (zp/zprint prev-args 80)))]]
+                          [:td {} [highlight
                                    {:language "clojure"}
                                    (with-out-str
-                                    (zp/zprint args 80))))
-                             ($ :td {} (pr-str evaled))
-                             ($ :td {} (pr-str children))))
-                        elements))))
+                                    (zp/zprint args 80))]]
+                          [:td {} (pr-str evaled)]
+                          [:td {} (pr-str children)]])))
+                elements)]])
       ($ :div {} "No tags found. Stick :rehook/id into one of your props :)"))))
 
 (defui elements
