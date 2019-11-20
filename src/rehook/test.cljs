@@ -91,7 +91,7 @@
 
 (defn timeline
   [ctx ctx-f props-f e]
-  (let [scenes (atom {:timeline []})]
+  (let [scenes (atom {:timeline [] :tests []})]
     (letfn [(next-scene [next-local-state]
               (swap! scenes update :timeline conj
                      (let [next-effects  (atom {})

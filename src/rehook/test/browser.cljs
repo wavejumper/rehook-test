@@ -64,6 +64,26 @@
   (let [scenes (rehook.test/timeline (todo/system) identity clj->js todo/todo-app)]
     (with-component-mounted [scene1 (rehook.test/mount! scenes)]
 
+      (swap! scenes update :tests conj
+             {:item "Initial render should show 4 TODO items"
+              :pass true
+              :type :assertion
+              :scene 0
+              :sexp '(= 4 (count state))})
+
+      (swap! scenes update :tests conj
+             {:mutation [:invoke-prop :clear-completed :onClick]
+              :type     :mutation
+              :pass     true
+              :scene    0})
+
+      (swap! scenes update :tests conj
+             {:item "After clicking 'Clear Completed' it should clear TODO items"
+              :pass true
+              :scene 1
+              :type  :assertion
+              :sexp '(= 0 (count state))})
+
       (rehook.test/invoke-prop scene1 :clear-completed :onClick {})
 
       (with-component-mounted [_ (rehook.test/mount! scenes scene1)]
@@ -268,6 +288,79 @@
                            :color  "blue"}}
           (if value "hide" "show")))))
 
+(defui summary
+  [{:keys [scenes]} _]
+  (let [tests (:tests scenes)]
+    [:div {}
+     (into [:div {}]
+           (map (fn [test]
+                  (case (:type test)
+                    :assertion
+                    [:div {:style {:display         "flex"
+                                   :border          "1px solid #ccc"
+                                   :padding         "10px"
+                                   :borderRadius    "3px"
+                                   :color           "#F8F8F8"
+                                   :justifyContent  "space-between"
+                                   :alignItems      "center"
+                                   :flexWrap        "wrap"
+                                   :marginTop       "20px"
+                                   :backgroundColor (if (:pass test)
+                                                      "#77DD77"
+                                                      "#B74747")}}
+
+                     [:div {:style {:width      "50px"
+                                    :height     "100%"
+                                    :alignItems "left"}}
+                      [:i {:className "material-icons"}
+                       (if (:pass test) "done" "highlight_off")]]
+
+                     [:div {:style {:fontWeight "1000"}}
+                      (:item test)
+                      [clojure-highlight {} (zpr-str (:sexp test))]]
+
+
+                     [:div {:style {:border "1px solid #ccc"
+                                    :padding "20px"
+                                    :backgroundColor "#ccc"
+                                    :fontSize "24px"}}
+                      (:scene test)]]
+
+                    :mutation
+                    [:div {:style {:display         "flex"
+                                   :marginTop       "20px"
+                                   :border          "1px solid #ccc"
+                                   :padding         "10px"
+                                   :borderRadius    "3px"
+                                   :color           "#F8F8F8"
+                                   :justifyContent  "space-between"
+                                   :alignItems      "center"
+                                   :flexWrap        "wrap"
+                                   :backgroundColor "#FCFCFC"}}
+
+                     [:div {:style {:width      "50px"
+                                    :height     "100%"
+                                    :alignItems "left"}}
+                      [:i {:className "material-icons"}
+                       "changes"]]
+
+                     [:div {:style {:fontWeight "1000"}}
+                      (:item test)
+                      [clojure-highlight {} (zpr-str (:mutation test))]]
+
+
+                     [:div {:style {:border "1px solid #ccc"
+                                    :padding "20px"
+                                    :backgroundColor "#ccc"
+                                    :fontSize "24px"}}
+                      (:scene test)
+                      [:i {:class "material-icons"}
+                       "trending_flat"]
+                      (inc (:scene test))]]
+
+                    "mutation"))
+                tests))]))
+
 (defui render-scene
   [{:keys [scenes]} props]
   (let [{:keys [index]} (js->clj props :keywordize-keys true)
@@ -281,12 +374,12 @@
         [show-diff? set-show-diff]       (rehook/use-state false)]
 
     [:div {}
-     [toggle-heading {:title   "summary"
+     [toggle-heading {:title   "test summary"
                       :onClick set-show-summary
                       :value   show-summary?}]
 
      (when show-summary?
-       [:p {} "3/3 assertions passed"])
+       [summary])
 
      [toggle-heading {:title   "dom"
                       :onClick set-show-dom
@@ -395,7 +488,7 @@
 
      ($ :h2 {} "Time-travel driven development")
 
-     ($ :p {} "Writing tests for rehook is not dissimilar to how you might test with datomic or kafka's TopologyTestDriver.")
+     ($ :p {} "Writing tests for rehook is not dissimilar to how you might test with datomic or kafka's TopologyTestDriver, with a bit of devcards in the mix.")
      ($ :p {} "Each state change produces a snapshot in time that rehook captures as a 'scene'.")
 
      ($ :p {} "Like kafka's ToplogyTestDriver, the tests run in a simulated library runtime.")
