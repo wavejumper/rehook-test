@@ -122,7 +122,7 @@
     ($ :div {}
        ($ :section {:id "todoapp"}
           ($ :header {:id "header"}
-             ($ :h1 {} "todos (rehook-dom)")
+             ($ :h1 {} "todos (rehook)")
              ($ todo-input {:id "new-todo"
                             :placeholder "What needs to be done?"
                             :onSave add-todo}))
