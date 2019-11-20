@@ -38,7 +38,7 @@
 (defn previous-scene [scenes index]
   (let [prev-index (dec index)]
     (when-not (neg? prev-index)
-      (current-scene scenes index))))
+      (current-scene scenes prev-index))))
 
 (defui simple-ui
   [_ _ $]
