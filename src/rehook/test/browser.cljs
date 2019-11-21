@@ -238,6 +238,22 @@
                (pr-str args)))
           elements)))
 
+(defui button [_ props]
+  (let [on-click (aget props "onClick")
+        selected (aget props "selected")
+        title    (aget props "title")]
+    [:div {:style   {:padding      "10px"
+                     :border       (if selected
+                                     "1px solid #222"
+                                     "1px solid #ccc")
+                     :borderRadius "3px"
+                     :marginRight  "10px"
+                     :cursor       "pointer"}
+           :onClick on-click}
+     (if selected
+       [:strong {} title]
+       title)]))
+
 (defui test-assertion [{:keys [scenes]} props]
   (let [index         (aget props "index")
         test          (get-in scenes [:tests index])
@@ -285,6 +301,7 @@
                     :justifyContent "space-between"
                     :alignItems   "center"
                     :flexWrap     "wrap"}}
+
       [:div {:style {:display      "flex"
                      :borderRadius "3px"
                      ;:justifyContent "space-between"
@@ -293,66 +310,26 @@
                      :marginTop    "10px"
                      :marginBottom "10px"}}
 
-       [:div {:style   {:padding      "10px"
-                        :border       (if (= :dom tab)
-                                        "1px solid #222"
-                                        "1px solid #ccc")
-                        :borderRadius "3px"
-                        :marginRight  "10px"
-                        :cursor       "pointer"}
-              :onClick #(set-tab :dom)}
-        (if (= :dom tab)
-          [:strong {} "DOM"]
-          "DOM")]
+       [button {:onClick  #(set-tab :dom)
+                :title    "DOM"
+                :selected (= :dom tab)}]
 
-       [:div {:style   {:padding       "10px"
-                        :border        (if (= :hiccup tab)
-                                         "1px solid #222"
-                                         "1px solid #ccc")
-                        :border-radius "3px"
-                        :marginRight   "10px"
-                        :cursor        "pointer"}
-              :onClick #(set-tab :hiccup)}
-        (if (= :hiccup tab)
-          [:strong {} "Hiccup"]
-          "Hiccup")]
+       [button {:onClick  #(set-tab :hiccup)
+                :title    "Hiccup"
+                :selected (= :hiccup tab)}]
 
        (when (pos? (:scene test))
-         [:div {:style   {:padding      "10px"
-                          :border       (if (= :diff tab)
-                                          "1px solid #222"
-                                          "1px solid #ccc")
-                          :cursor       "pointer"
-                          :borderRadius "3px"
-                          :marginRight  "10px"}
-                :onClick #(set-tab :diff)}
-          (if (= :diff tab)
-            [:strong {} "Diff"]
-            "Diff")])
+         [button {:onClick #(set-tab :diff)
+                  :selected (= tab :diff)
+                  :title    "Diff"}])
 
-       [:div {:style   {:padding       "10px"
-                        :border-radius "3px"
-                        :marginRight   "10px"
-                        :border        (if (= :effects tab)
-                                         "1px solid #222"
-                                         "1px solid #ccc")
-                        :cursor        "pointer"}
-              :onClick #(set-tab :effects)}
-        (if (= :effects tab)
-          [:strong {} "Effects"]
-          "Effects")]
+       [button {:onClick  #(set-tab :effects)
+                :selected (= tab :effects)
+                :title    "Effects"}]
 
-       [:div {:style   {:padding      "10px"
-                        :border       (if (= :state tab)
-                                        "1px solid #222"
-                                        "1px solid #ccc")
-                        :cursor       "pointer"
-                        :borderRadius "3px"
-                        :marginRight  "10px"}
-              :onClick #(set-tab :state)}
-        (if (= :state tab)
-          [:strong {} "State"]
-          "State")]]
+       [button {:onClick  #(set-tab :state)
+                :selected (= tab :state)
+                :title    "State"}]]
 
       [:div {:onClick #(set-show-details (not show-details?))
              :style {:color "blue"
