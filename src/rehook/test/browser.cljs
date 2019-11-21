@@ -84,9 +84,15 @@
               :type  :assertion
               :sexp '(= 0 (count state))})
 
+      (js/console.log "Scene 1 children => " (pr-str (rehook.test/children scene1 :clear-completed)))
+
       (rehook.test/invoke-prop scene1 :clear-completed :onClick {})
 
-      (with-component-mounted [_ (rehook.test/mount! scenes scene1)]
+      (with-component-mounted [scene2 (rehook.test/mount! scenes scene1)]
+
+
+        (js/console.log "Scene 2 children => " (pr-str (rehook.test/children scene2 :clear-completed)))
+
         @scenes))))
 
 ;;(simple-ui-test)
@@ -117,11 +123,12 @@
   [{:keys [scenes]} props $]
   (let [{:keys [index]} (js->clj props :keywordize-keys true)
         scene (current-scene scenes index)]
-    ($ highlight
-       {:language "clojure"
-        :key      (scene-key index "code")}
-       (with-out-str
-        (zp/zprint (js->clj ((:dom scene))) 80)))))
+    ($ :div {:style {:overflow "scroll"}}
+       ($ highlight
+          {:language "clojure"
+           :key      (scene-key index "code")}
+          (with-out-str
+           (zp/zprint (js->clj ((:dom scene))) 80))))))
 
 (defui diff
   [{:keys [scenes]} props $]
@@ -164,30 +171,21 @@
        [:table {}
         [:thead {}
          [:tr {}
-          [:th {} "key"]
+          [:th {} "component"]
+          [:th {} "parent"]
           [:th {} "index"]
-          [:th {} "initial value"]
           [:th {} "previous value"]
           [:th {} "current value"]]]
         (into [:tbody {}]
               (map (fn [[[k i :as id] {:keys [current-value initial-value]}]]
                      [:tr {}
-                      [:td {} (pr-str k)]
-                      [:td {} i]
+                      [:td {} (last k)]
+                      [:td {} (or (-> k butlast last) "-")]
+                      [:td {} (dec i)]
                       [:td {}
                        [clojure-highlight {}
                         (zpr-str
-                         (if (= current-value initial-value)
-                           "..."
-                           initial-value)
-                         120)]]
-                      [:td {}
-                       [clojure-highlight {}
-                        (zpr-str
-                         (if-let [previous-value (get-in prev-state [id :current-value])]
-                           (if (= current-value previous-value)
-                             "..."
-                             previous-value))
+                         (get-in prev-state [id :current-value])
                          120)]]
                       [:td {}
                        [clojure-highlight {} (zpr-str current-value 120)]]])
@@ -207,7 +205,8 @@
        [:table {}
         [:thead {}
          [:tr {}
-          [:th {} "key"]
+          [:th {} "component"]
+          [:th {} "parent"]
           [:th {} "index"]
           [:th {} "prev deps"]
           [:th {} "deps"]
@@ -216,8 +215,9 @@
               (map (fn [[[k i :as id] {:keys [deps]}]]
                      (let [prev-deps (get-in prev-effects [id :deps])]
                        [:tr {}
-                        [:td {} (pr-str k)]
-                        [:td {} i]
+                        [:td {} (last k)]
+                        [:td {} (or (-> k butlast last) "-")]
+                        [:td {} (dec i)]
                         [:td {} (pr-str prev-deps)]
                         [:td {} (pr-str deps)]
                         [:td {} (pr-str (rehook.test/eval-effect? index prev-deps deps))]]))
@@ -248,9 +248,7 @@
                        [:tr {:key (pr-str index "-" k)}
                         [:td {} (pr-str k)]
                         [:td {} [clojure-highlight {}
-                                 (zpr-str (if (= prev-args args)
-                                            "..."
-                                            prev-args))]]
+                                 (zpr-str prev-args)]]
                         [:td {} [clojure-highlight {} (zpr-str args)]]
                         [:td {} (pr-str evaled)]
                         [:td {} (pr-str children)]])))
@@ -288,139 +286,182 @@
                            :color  "blue"}}
           (if value "hide" "show")))))
 
+(defui test-assertion
+  [{:keys [scenes]} props]
+  (let [index         (aget props "index")
+        test          (get-in scenes [:tests index])
+        [show-details? set-show-details] (rehook/use-state true)
+        [tab set-tab] (rehook/use-state :dom)]
+
+    (rehook/use-effect
+     (fn []
+       (set-show-details true)
+       (constantly nil))
+     [(name tab)])
+
+    [:div {:style {}}
+     [:div {:style {:display         "flex"
+                    :border          "1px solid #ccc"
+                    :padding         "10px"
+                    :borderRadius    "3px"
+                    :color           "#F8F8F8"
+                    :justifyContent  "space-between"
+                    :alignItems      "center"
+                    :flexWrap        "wrap"
+                    :marginTop       "20px"
+                    :backgroundColor (if (:pass test)
+                                       "#77DD77"
+                                       "#B74747")}}
+
+      [:div {:style {:width      "50px"
+                     :height     "100%"
+                     :alignItems "left"}}
+       [:i {:className "material-icons"}
+        (if (:pass test) "done" "highlight_off")]]
+
+      [:div {:style {:fontWeight "1000"}}
+       (:item test)
+       [clojure-highlight {} (zpr-str (:sexp test))]]
+
+
+      [:div {:style {:border          "1px solid #ccc"
+                     :padding         "20px"
+                     :backgroundColor "#ccc"
+                     :fontSize        "24px"}}
+       (:scene test)]]
+
+     [:div {:style {:display        "flex"
+                    :justifyContent "space-between"
+                    :alignItems   "center"
+                    :flexWrap     "wrap"}}
+      [:div {:style {:display      "flex"
+                     :borderRadius "3px"
+                     ;:justifyContent "space-between"
+                     :alignItems   "center"
+                     :flexWrap     "wrap"
+                     :marginTop    "10px"
+                     :marginBottom "10px"}}
+
+       [:div {:style   {:padding      "10px"
+                        :border       (if (= :dom tab)
+                                        "1px solid #222"
+                                        "1px solid #ccc")
+                        :borderRadius "3px"
+                        :marginRight  "10px"
+                        :cursor       "pointer"}
+              :onClick #(set-tab :dom)}
+        (if (= :dom tab)
+          [:strong {} "DOM"]
+          "DOM")]
+
+       [:div {:style   {:padding       "10px"
+                        :border        (if (= :hiccup tab)
+                                         "1px solid #222"
+                                         "1px solid #ccc")
+                        :border-radius "3px"
+                        :marginRight   "10px"
+                        :cursor        "pointer"}
+              :onClick #(set-tab :hiccup)}
+        (if (= :hiccup tab)
+          [:strong {} "Hiccup"]
+          "Hiccup")]
+
+       (when (pos? (:scene test))
+         [:div {:style   {:padding      "10px"
+                          :border       (if (= :diff tab)
+                                          "1px solid #222"
+                                          "1px solid #ccc")
+                          :cursor       "pointer"
+                          :borderRadius "3px"
+                          :marginRight  "10px"}
+                :onClick #(set-tab :diff)}
+          (if (= :diff tab)
+            [:strong {} "Diff"]
+            "Diff")])
+
+       [:div {:style   {:padding       "10px"
+                        :border-radius "3px"
+                        :marginRight   "10px"
+                        :border        (if (= :effects tab)
+                                         "1px solid #222"
+                                         "1px solid #ccc")
+                        :cursor        "pointer"}
+              :onClick #(set-tab :effects)}
+        (if (= :effects tab)
+          [:strong {} "Effects"]
+          "Effects")]
+
+       [:div {:style   {:padding      "10px"
+                        :border       (if (= :state tab)
+                                        "1px solid #222"
+                                        "1px solid #ccc")
+                        :cursor       "pointer"
+                        :borderRadius "3px"
+                        :marginRight  "10px"}
+              :onClick #(set-tab :state)}
+        (if (= :state tab)
+          [:strong {} "State"]
+          "State")]]
+
+      [:div {:onClick #(set-show-details (not show-details?))
+             :style {:color "blue"
+                     :cursor "pointer"}}
+       (if show-details? "Hide" "Show")]]
+
+     (when show-details?
+       (case tab
+         :dom     [dom {:index (:scene test)}]
+         :hiccup  [code {:index (:scene test)}]
+         :diff    [diff {:index (:scene test)}]
+         :effects [effects {:index (:scene test)}]
+         :state   [state {:index (:scene test)}]))]))
+
 (defui summary
   [{:keys [scenes]} _]
   (let [tests (:tests scenes)]
-    [:div {}
-     (into [:div {}]
-           (map (fn [test]
-                  (case (:type test)
-                    :assertion
-                    [:div {:style {:display         "flex"
-                                   :border          "1px solid #ccc"
-                                   :padding         "10px"
-                                   :borderRadius    "3px"
-                                   :color           "#F8F8F8"
-                                   :justifyContent  "space-between"
-                                   :alignItems      "center"
-                                   :flexWrap        "wrap"
-                                   :marginTop       "20px"
-                                   :backgroundColor (if (:pass test)
-                                                      "#77DD77"
-                                                      "#B74747")}}
+    (into [:div {}]
+          (map-indexed (fn [idx test]
+                 (case (:type test)
+                   :assertion
+                   [test-assertion {:index idx :key (str "assertions-" idx)}]
 
-                     [:div {:style {:width      "50px"
-                                    :height     "100%"
-                                    :alignItems "left"}}
-                      [:i {:className "material-icons"}
-                       (if (:pass test) "done" "highlight_off")]]
+                   :mutation
+                   [:div {:style {:display         "flex"
+                                  :marginTop       "20px"
+                                  :border          "1px solid #ccc"
+                                  :padding         "10px"
+                                  :borderRadius    "3px"
+                                  :color           "#F8F8F8"
+                                  :justifyContent  "space-between"
+                                  :alignItems      "center"
+                                  :flexWrap        "wrap"
+                                  :backgroundColor "#FCFCFC"}}
 
-                     [:div {:style {:fontWeight "1000"}}
-                      (:item test)
-                      [clojure-highlight {} (zpr-str (:sexp test))]]
+                    [:div {:style {:width      "50px"
+                                   :height     "100%"
+                                   :alignItems "left"}}
+                     [:i {:className "material-icons"}
+                      "changes"]]
 
-
-                     [:div {:style {:border "1px solid #ccc"
-                                    :padding "20px"
-                                    :backgroundColor "#ccc"
-                                    :fontSize "24px"}}
-                      (:scene test)]]
-
-                    :mutation
-                    [:div {:style {:display         "flex"
-                                   :marginTop       "20px"
-                                   :border          "1px solid #ccc"
-                                   :padding         "10px"
-                                   :borderRadius    "3px"
-                                   :color           "#F8F8F8"
-                                   :justifyContent  "space-between"
-                                   :alignItems      "center"
-                                   :flexWrap        "wrap"
-                                   :backgroundColor "#FCFCFC"}}
-
-                     [:div {:style {:width      "50px"
-                                    :height     "100%"
-                                    :alignItems "left"}}
-                      [:i {:className "material-icons"}
-                       "changes"]]
-
-                     [:div {:style {:fontWeight "1000"}}
-                      (:item test)
-                      [clojure-highlight {} (zpr-str (:mutation test))]]
+                    [:div {:style {:fontWeight "1000"}}
+                     (:item test)
+                     [clojure-highlight {} (zpr-str (:mutation test))]]
 
 
-                     [:div {:style {:border "1px solid #ccc"
-                                    :padding "20px"
-                                    :backgroundColor "#ccc"
-                                    :fontSize "24px"}}
-                      (:scene test)
-                      [:i {:class "material-icons"}
-                       "trending_flat"]
-                      (inc (:scene test))]]
+                    [:div {:style {:border          "1px solid #ccc"
+                                   :padding         "20px"
+                                   :backgroundColor "#ccc"
+                                   :fontSize        "24px"}}
+                     (:scene test)
+                     [:i {:className "material-icons"}
+                      "trending_flat"]
+                     (inc (:scene test))]]
 
-                    "mutation"))
-                tests))]))
+                   "mutation"))
+               tests))))
 
-(defui render-scene
-  [{:keys [scenes]} props]
-  (let [{:keys [index]} (js->clj props :keywordize-keys true)
-        prev-scene (previous-scene scenes index)
-        [show-summary? set-show-summary] (rehook/use-state true)
-        [show-tags? set-show-tags]       (rehook/use-state true)
-        [show-hiccup? set-show-hiccup]   (rehook/use-state false)
-        [show-state? set-show-state]     (rehook/use-state true)
-        [show-effects? set-show-effects] (rehook/use-state true)
-        [show-dom? set-show-dom]         (rehook/use-state true)
-        [show-diff? set-show-diff]       (rehook/use-state false)]
-
-    [:div {}
-     [toggle-heading {:title   "test summary"
-                      :onClick set-show-summary
-                      :value   show-summary?}]
-
-     (when show-summary?
-       [summary])
-
-     [toggle-heading {:title   "dom"
-                      :onClick set-show-dom
-                      :value   show-dom?}]
-     (when show-dom?
-       [dom {:index index}])
-
-     [toggle-heading {:title   "tags"
-                      :onClick set-show-tags
-                      :value   show-tags?}]
-
-     (when show-tags?
-       [tags {:index index}])
-
-     [toggle-heading {:title   "state"
-                      :onClick set-show-state
-                      :value   show-state?}]
-
-     (when show-state?
-       [state {:index index}])
-
-     [toggle-heading {:title   "effects"
-                      :onClick set-show-effects
-                      :value   show-effects?}]
-
-     (when show-effects?
-       [effects {:index index}])
-
-     [toggle-heading {:title   "hiccup"
-                      :onClick set-show-hiccup
-                      :value   show-hiccup?}]
-     (when show-hiccup?
-       [code {:index index}])
-
-     (when prev-scene
-       [toggle-heading {:title   "diff"
-                        :onClick set-show-diff
-                        :value   show-diff?}])
-
-     (when (and prev-scene show-diff?)
-       [diff {:index index}])]))
+(defui render-scene [_ _]
+  [:div {} [summary]])
 
 (defui testcard
   [{:keys [scenes]} _ $]
@@ -429,21 +470,7 @@
     ($ :div {:style {:border "1px solid #d1d5da"
                      :borderRadius "3px"
                      :padding "15px"}}
-       ($ :h2 {} "Test scenario 1")
-
-       ($ tabs {}
-          (doall
-           (map-indexed
-            #($ tab {:key (str "scene-nav-" %1)
-                     :style {:backgroundColor "green"}}
-                (if (= current-index %1)
-                  ($ :strong {:style {:textDecoration "underline"
-                                      :color "white"}}
-                     (str "Render " %1))
-                  ($ :span {:style   {:color "white"}
-                            :onClick (fn [_] (set-index %1))}
-                     (str "Render " %1))))
-            timeline)))
+       ($ :h2 {} "todomvc: clear completed")
 
        ($ render-scene
           {:key   (str "scene-" current-index)
@@ -458,25 +485,39 @@
 
 (defui rehook-test-container
   [_ _ $]
-  ($ :div {:style {:width "calc(100% - 128px)"
-                   :maxMidth "680px"
-                   :marginLeft "64px"
+  ($ :div {:style {:width       "calc(100% - 128px)"
+                   :maxMidth    "680px"
+                   :marginLeft  "64px"
                    :marginRight "64px"
-                   :fontFamily "'Open Sans', sans-serif"
-                   :lineHeight "1.5"
-                   :color "#24292e"}}
+                   :fontFamily  "'Open Sans', sans-serif"
+                   :lineHeight  "1.5"
+                   :color       "#24292e"}}
 
      ($ heading)
 
-     ($ :h2 {} "About")
-     ($ :p {} "rehook is my attempt to address the pitfalls of front-end development, and attempt to push it forward.")
+     ($ :h2 {}
+        ($ :a {:href "#about"} "About"))
+
      ($ :p {} "rehook is built from small, modular blocks - each with an explicit notion of time, and a data-first design.")
      ($ :p {} "As rehook is modular, each layer builds upon the last. Each layer adds a new idea: testing, syntax, devtools, patterns.")
-     ($ :p {} "As rehook is modular, there is not yet a cohesive resource on architecting a rehook app. ")
-     ($ :p {} "This is all a work in progress. Please check back :)")
+     ($ :p {} "rehook's value proposition is that React is the abstraction.")
+     ($ :p {} "The core library tries to do two things:")
+     ($ :ul {}
+        ($ :li {} "marry React hooks with Clojure atoms")
+        ($ :li {} "avoid singleton state"))
 
+     ($ :p {} "If you need a primer on what React hooks is, the API docs are a good start.")
+     ($ :p {} "React Hook's API shows us that functions are the ultimate interface! The React Hooks API already has many abstractions built on top of it, eg redux style reducers.")
+     ($ :p {} "It is my hope that rehook's core API could be used to build general and domain-specific abstractions on top: eg re-frame impls, om-next style querying etc.")
 
-     ($ :h2 {} "Testing")
+     ($ :h2 {}
+        ($ :a {:href "#usage"} "Usage"))
+
+     ($ clojure-highlight {})
+
+     ($ :h2 {}
+        ($ :a {:href "#testing"}
+           "Testing"))
 
      ($ :p {} "rehook allows you to test your entire application - from data layer to view.")
      ($ :p {} "rehook-test supports:")
@@ -492,26 +533,24 @@
      ($ :p {} "Each state change produces a snapshot in time that rehook captures as a 'scene'.")
 
      ($ :p {} "Like kafka's ToplogyTestDriver, the tests run in a simulated library runtime.")
-     ($ :p {} "However, a read-only snapshot of the dom is rendered for each scene! This allows you to catch any runtime errors caused by invalid inputs for each re-render.")
+     ($ :p {} "However, a read-only snapshot of the dom is rendered for each scene! This allows you to catch any runtime errors caused by invalid inputs for each re-render. ")
 
-     ($ :h2 {} "Usage")
-     ($ :p {} "Documentation on usage is for now a WIP. Please check the unit tests written for "
-        ($ :a {:href ""} "reax-synth")
-        " and "
-        ($ :a {:href ""} "todomvc"))
-
-     ($ :h2 {} "TODOs (help wanted)")
+     ($ :h2 {}
+        ($ :a {:href "#todos"} "TODOs (help wanted)"))
      ($ :ul {}
         ($ :li {} "Polish/package rehook-test for mass-consumption")
         ($ :li {} "I want Github-level diffs between the previous scene and the next scene's hiccup. "
            ($ :a {:href "https://github.com/praneshr/react-diff-viewer" :target "_blank"} "react-diff-viewer?"))
-        ($ :li {} "How can we use clojure spec and perhaps property based testing to put this thing on steroids? Eg, instrument and render shrunk result")
-        ($ :li {} "This tool could be used during regular live-reload development? Eg, reframe10x but on even more steroids :)")
-        ($ :li {} "The keys for state/effects need to be much, much clearer")
-        ($ :li {} "This tool **could** lint/detect various warnings/runtime problems. Eg, when a :key on a component is required, when state/effects are setup incorrectly, etc"))
+        ($ :li {} "How can we use clojure spec and perhaps property based testing to put this thing on steroids? Eg, instrument and render the shrunk result")
+        ($ :li {} "This tool could be used during regular live-reload development. Eg, reframe10x but on even more steroids :)")
+        ($ :li {} "As it stands, it's 100% possible to render async tests (eg, test effects that use js/setTimeout, core.async, etc) -- document, explain etc.")
+        ($ :li {} "This tool **could** lint/detect various warnings/runtime problems. Eg, when a :key on a component is required, when state/effects are setup incorrectly, etc. Even better, the simulated runtime could detect/profile poor performing code :)"))
 
-     ($ :h2 {} "Demo")
-     ($ :p {} "The demo below is the output of the unit tests written for rehook's own todomvc. You can view the source code here.")
+     ($ :h2 {}
+        ($ :a {:href "#demo"} "Demo"))
+     ($ :p {} "The demo below is the output of the unit tests written for rehook's own todomvc.")
+     ($ :p {} "You can view the source code here.")
+     ($ :p {} "You can see the tests running in a headless CI environment here.")
 
      ($ testcard)))
 

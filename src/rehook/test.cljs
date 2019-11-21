@@ -1,9 +1,12 @@
 (ns rehook.test
   (:require [rehook.core :as rehook]
-            [rehook.dom.browser :as browser]))
+            [rehook.util :as util]))
 
 (defn- ctx-transformer [ctx elem]
-  (update ctx :reax.test/id conj (pr-str elem)))
+  (update ctx :rehook.test/id
+          #(if %
+             (conj % (util/display-name elem))
+             [(util/display-name elem)])))
 
 (defn- use-state
   [scene-state local-state next-scene component-id state-id initial-value]
@@ -51,7 +54,7 @@
 
   ([next-elements next-scene scene-state effects local-state ctx ctx-f props-f e args & children]
    (let [ctx          (ctx-transformer (ctx-f ctx e) e)
-         component-id (get args :key (:reax.test/id ctx))
+         component-id (get args :key (:rehook.test/id ctx))
          state-id     (atom 0)
          effect-id    (atom 0)]
 
