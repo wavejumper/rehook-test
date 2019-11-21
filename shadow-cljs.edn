@@ -13,8 +13,8 @@
    :output-dir "public/js"
    :asset-path "/js"
    :devtools {:preloads [devtools.preload]}
-   :modules {:main {:entries [rehook.test.browser]
-                    :init-fn rehook.test.browser/main}}}
+   :modules {:main {:entries [rehook.demo.app]
+                    :init-fn rehook.demo.app/main}}}
 
   :test
   {:target    :node-test

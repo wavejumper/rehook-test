@@ -86,7 +86,7 @@
                                  [id (f)]))
                           (into {}))}))
 
-(defn timeline
+(defn init
   [ctx ctx-f props-f e]
   (let [scenes (atom {:timeline [] :tests []})]
     (letfn [(next-scene [next-local-state]

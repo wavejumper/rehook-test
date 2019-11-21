@@ -1,16 +1,12 @@
 (ns rehook.test.browser
-  (:require [rehook.test :as rehook.test :refer-macros [with-component-mounted]]
-            [rehook.core :as rehook]
+  (:require [rehook.core :as rehook]
             [rehook.dom :refer-macros [defui ui]]
-            [cljs.test :refer-macros [deftest is testing]]
             [rehook.dom.browser :as dom.browser]
-            ["react-dom" :as react-dom]
             ["react-highlight" :as Highlight]
             ["react-frame-component" :as Frame]
             [zprint.core :as zp]
             [clojure.string :as str]
-            [clojure.data :as data]
-            [rehook.demo.todo :as todo]))
+            [clojure.data :as data]))
 
 (goog-define HTML
   "<!DOCTYPE html><html><head><link rel=\"stylesheet\" href=\"styles/todo.css\"></head><body><div></div></body></html>")
@@ -38,34 +34,6 @@
   (let [prev-index (dec index)]
     (when-not (neg? prev-index)
       (current-scene scenes prev-index))))
-
-(defn todo-test []
-  (let [scenes (rehook.test/timeline (todo/system) identity clj->js todo/todo-app)]
-    (with-component-mounted [scene1 (rehook.test/mount! scenes)]
-      (swap! scenes update :tests conj
-             {:item "Initial render should show 4 TODO items"
-              :pass true
-              :type :assertion
-              :scene 0
-              :sexp '(= 4 (count state))})
-
-      (swap! scenes update :tests conj
-             {:mutation [:invoke-prop :clear-completed :onClick]
-              :type     :mutation
-              :pass     true
-              :scene    0})
-
-      (swap! scenes update :tests conj
-             {:item "After clicking 'Clear Completed' it should clear TODO items"
-              :pass true
-              :scene 1
-              :type  :assertion
-              :sexp '(= 0 (count state))})
-
-      (rehook.test/invoke-prop scene1 :clear-completed :onClick {})
-
-      (with-component-mounted [_ (rehook.test/mount! scenes scene1)]
-        @scenes))))
 
 (defn scene-key [index & words]
   (str "scene-" index "-" (str/join "-" words)))
@@ -261,7 +229,6 @@
        (:item test)
        [clojure-highlight {} (zpr-str (:sexp test))]]
 
-
       [:div {:style {:border          "1px solid #ccc"
                      :padding         "20px"
                      :backgroundColor "#ccc"
@@ -275,7 +242,6 @@
 
       [:div {:style {:display      "flex"
                      :borderRadius "3px"
-                     ;:justifyContent "space-between"
                      :alignItems   "center"
                      :flexWrap     "wrap"
                      :marginTop    "10px"
@@ -348,18 +314,14 @@
        "trending_flat"]
       (inc (:scene test))]]))
 
-(defui summary
-  [{:keys [scenes]} _]
+(defui summary [{:keys [scenes]} _]
   (let [tests (:tests scenes)]
     (into [:div {}]
           (map-indexed
            (fn [idx test]
              (case (:type test)
-               :assertion
-               [test-assertion {:index idx :key (str "assertions-" idx)}]
-
-               :mutation
-               [mutation {:index idx :key (str "mutation-" idx)}]))
+               :assertion [test-assertion {:index idx :key (str "assertions-" idx)}]
+               :mutation  [mutation {:index idx :key (str "mutation-" idx)}]))
            tests))))
 
 (defui testcard [_ _]
@@ -371,34 +333,3 @@
 
 (defn render-test [test]
   (dom.browser/bootstrap {:scenes test} identity clj->js testcard))
-
-(defui heading [_ _]
-  [:h1 {}
-   [:a {:href   "https://github.com/wavejumper/rehook"
-        :target "_blank"}
-    "rehook"]])
-
-(defui rehook-test-container [_ _]
-  [:div {:style {:width       "calc(100% - 128px)"
-                 :maxMidth    "680px"
-                 :marginLeft  "64px"
-                 :marginRight "64px"
-                 :fontFamily  "'Open Sans', sans-serif"
-                 :lineHeight  "1.5"
-                 :color       "#24292e"}}
-   [heading]
-   [:h2 {} "Demo"]
-   [:p {} "The demo below is the output of the unit tests written for rehook's own todomvc."]
-   [:p {} "You can view the source code here."]
-   [:p {} "You can see the tests running in a headless CI environment here."]
-   [testcard]])
-
-(defn ^:dev/after-load render! []
-  (let [scenes (todo-test)]
-    (js/console.log "rendering rehook.test ~~~ ♪┏(・o･)┛♪")
-    (react-dom/render
-     (dom.browser/bootstrap {:scenes scenes} identity clj->js rehook-test-container)
-     (js/document.getElementById "app"))))
-
-(defn main []
-  (render!))
