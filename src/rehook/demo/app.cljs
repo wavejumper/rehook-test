@@ -1,8 +1,7 @@
 (ns rehook.demo.app
-  (:require [rehook.test :as rehook.test :refer-macros [with-component-mounted]]
+  (:require [rehook.test :as rehook.test :refer-macros [with-component-mounted defuitest is io]]
             [rehook.test.browser :as test.browser]
             [rehook.dom :refer-macros [defui ui]]
-            [cljs.test :refer-macros [deftest is testing]]
             [rehook.dom.browser :as dom.browser]
             ["react-dom" :as react-dom]
             [rehook.demo.todo :as todo]))
@@ -10,6 +9,7 @@
 (defn todo-test []
   (let [scenes (rehook.test/init (todo/system) identity clj->js todo/todo-app)]
     (with-component-mounted [scene1 (rehook.test/mount! scenes)]
+      (is scene1 "Initial render should show 4 TODO items" true)
       (swap! scenes update :tests conj
              {:item "Initial render should show 4 TODO items"
               :pass true

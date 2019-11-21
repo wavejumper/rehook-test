@@ -270,7 +270,8 @@
 
       [:div {:onClick #(set-show-details (not show-details?))
              :style {:color "blue"
-                     :cursor "pointer"}}
+                     :cursor "pointer"
+                     :userSelect "none"}}
        (if show-details? "Hide" "Show")]]
 
      (when show-details?

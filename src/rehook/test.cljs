@@ -90,19 +90,21 @@
   [ctx ctx-f props-f e]
   (let [scenes (atom {:timeline [] :tests []})]
     (letfn [(next-scene [next-local-state]
-              (swap! scenes update :timeline conj
-                     (let [next-effects  (atom {})
-                           actions       (atom {})
-                           next-elements (atom {})
-                           scene-state   (atom {})
-                           render        (bootstrap next-elements next-scene scene-state next-effects
-                                                    next-local-state ctx ctx-f props-f e)]
-                       {:actions  actions
-                        :render   render
-                        :dom      #(do render)
-                        :effects  next-effects
-                        :state    scene-state
-                        :elements next-elements})))]
+              (swap! scenes update :timeline
+                     (fn [timeline]
+                       (let [next-effects  (atom {})
+                             actions       (atom {})
+                             next-elements (atom {})
+                             scene-state   (atom {})
+                             render        (bootstrap next-elements next-scene scene-state next-effects
+                                                      next-local-state ctx ctx-f props-f e)]
+                         (conj timeline {:actions  actions
+                                         :render   render
+                                         :index    (count timeline)
+                                         :dom      #(do render)
+                                         :effects  next-effects
+                                         :state    scene-state
+                                         :elements next-elements})))))]
       (next-scene {})
       scenes)))
 
@@ -118,19 +120,40 @@
       {:ticks 0}
       (drop (get scene :tick 0) timeline)))))
 
+(def ^:dynamic *report* nil)
+(def ^:dynamic *scene* nil)
+
 (defn total-scenes [scenes]
   (or (some-> scenes deref :timeline count) 0))
 
-(defn children [scene id]
-  (-> scene :elements id :children))
+(defn children
+  ([id]
+   (when-not *scene*
+     (throw (ex-info "rehook.test/children called outside of test" {:id id})))
+   (children *scene* id))
 
-(defn get-prop [scene id k]
-  (-> scene :elements id :args k))
+  ([scene id]
+   (-> scene :elements id :children)))
 
-(defn invoke-prop [scene id k & args]
-  (if-let [f (get-prop scene id k)]
-    (apply f args)
-    (js/console.warn "No fn found for prop" [id k])))
+(defn get-prop
+  ([id k]
+   (when-not *scene*
+     (throw (ex-info "rehook.test/get-prop called outside of test" {:id id :k k})))
+   (get-prop *scene* id k))
+
+  ([scene id k]
+   (-> scene :elements id :args k)))
+
+(defn invoke-prop
+  ([id k args]
+   (when-not *scene*
+     (throw (ex-info "rehook.test/get-prop called outside of test" {:id id :k k :args args})))
+   (invoke-prop *scene* id k args))
+  
+  ([scene id k args]
+   (if-let [f (get-prop scene id k)]
+     (apply f args)
+     (js/console.warn "No fn found for prop" [id k]))))
 
 (defn main []
   (js/console.log "rehook.test ~~~ ♪┏(・o･)┛♪"))
