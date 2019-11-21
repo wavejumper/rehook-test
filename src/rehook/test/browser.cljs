@@ -9,7 +9,6 @@
             ["react-frame-component" :as Frame]
             [zprint.core :as zp]
             [clojure.string :as str]
-            [clojure.walk :as walk]
             [clojure.data :as data]
             [rehook.demo.todo :as todo]))
 
@@ -40,30 +39,9 @@
     (when-not (neg? prev-index)
       (current-scene scenes prev-index))))
 
-(defui simple-ui
-  [_ _ $]
-  (let [[x set-x] (rehook/use-state "foo")]
-    ($ :div {:onClick   #(set-x "bar")
-             :rehook/id :my-div}
-       x)))
-
-(defn simple-ui-test []
-  (let [scenes (rehook.test/timeline {} identity clj->js simple-ui)]
-    (with-component-mounted [scene1 (rehook.test/mount! scenes)]
-      (testing "Rendered value should be equal foo"
-        (is (= "foo" (first (rehook.test/children scene1 :my-div)))))
-
-      (rehook.test/invoke-prop scene1 :my-div :onClick {})
-
-      (testing "Rendered value after clicking on div should equal bar"
-        (with-component-mounted [scene2 (rehook.test/mount! scenes scene1)]
-          (is (= "bar" (first (rehook.test/children scene2 :my-div)))))))
-    @scenes))
-
 (defn todo-test []
   (let [scenes (rehook.test/timeline (todo/system) identity clj->js todo/todo-app)]
     (with-component-mounted [scene1 (rehook.test/mount! scenes)]
-
       (swap! scenes update :tests conj
              {:item "Initial render should show 4 TODO items"
               :pass true
@@ -84,15 +62,9 @@
               :type  :assertion
               :sexp '(= 0 (count state))})
 
-      (js/console.log "Scene 1 children => " (pr-str (rehook.test/children scene1 :clear-completed)))
-
       (rehook.test/invoke-prop scene1 :clear-completed :onClick {})
 
-      (with-component-mounted [scene2 (rehook.test/mount! scenes scene1)]
-
-
-        (js/console.log "Scene 2 children => " (pr-str (rehook.test/children scene2 :clear-completed)))
-
+      (with-component-mounted [_ (rehook.test/mount! scenes scene1)]
         @scenes))))
 
 (defn scene-key [index & words]
@@ -152,16 +124,14 @@
           [:th {} "previous value"]
           [:th {} "current value"]]]
         (into [:tbody {}]
-              (map (fn [[[k i :as id] {:keys [current-value initial-value]}]]
+              (map (fn [[[k i :as id] {:keys [current-value]}]]
                      [:tr {}
                       [:td {} (last k)]
                       [:td {} (or (-> k butlast last) "-")]
                       [:td {} (dec i)]
                       [:td {}
                        [clojure-highlight {}
-                        (zpr-str
-                         (get-in prev-state [id :current-value])
-                         120)]]
+                        (zpr-str (get-in prev-state [id :current-value]) 120)]]
                       [:td {}
                        [clojure-highlight {} (zpr-str current-value 120)]]])
                    state))]]
@@ -248,7 +218,8 @@
                                      "1px solid #ccc")
                      :borderRadius "3px"
                      :marginRight  "10px"
-                     :cursor       "pointer"}
+                     :cursor       "pointer"
+                     :userSelect   "none"}
            :onClick on-click}
      (if selected
        [:strong {} title]
@@ -268,7 +239,7 @@
 
     [:div {:style {}}
      [:div {:style {:display         "flex"
-                    :border          "1px solid #ccc"
+                    :border          "1px solid #88CC88"
                     :padding         "10px"
                     :borderRadius    "3px"
                     :color           "#F8F8F8"
@@ -397,6 +368,9 @@
                  :padding      "15px"}}
    [:h2 {} "todomvc: clear completed"]
    [summary]])
+
+(defn render-test [test]
+  (dom.browser/bootstrap {:scenes test} identity clj->js testcard))
 
 (defui heading [_ _]
   [:h1 {}

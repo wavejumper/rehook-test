@@ -8,3 +8,7 @@
          ~@body)
        (finally
          (rehook.test/unmount! component#)))))
+
+(defmacro defuitest [ ]
+
+  )

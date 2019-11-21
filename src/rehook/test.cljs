@@ -27,22 +27,16 @@
 
 (defn- handle-type
   [next-elements e ctx $ args raw-args children]
-  (let [evaled (if (fn? e)
-                 (let [ret (e ctx $)]
-                   (if (fn? ret)
-                     (ret args)
-                     ret))
-                 e)
-        elem (cond
-               (keyword? e) (if (empty? children)
-                              [e args]
-                              (into [e args] children))
-               (sequential? e) (into [:*] e)
-               (fn? e)         evaled)]
+  (let [elem (cond
+               (keyword? e)               (into [e args] children)
+               ;; TODO: properly handle fragments...
+               (vector? e)                (into [:*] e)
+               (util/rehook-component? e) ((e ctx $) args)
+               (fn? e)                    (e args))]
     (if-let [id (:rehook/id raw-args)]
       (let [elem-meta {:e        e
                        :args     raw-args
-                       :evaled   evaled
+                       :evaled   elem
                        :children children}]
         (swap! next-elements assoc id elem-meta)
         elem)
@@ -101,7 +95,8 @@
                            actions       (atom {})
                            next-elements (atom {})
                            scene-state   (atom {})
-                           render        (bootstrap next-elements next-scene scene-state next-effects next-local-state ctx ctx-f props-f e)]
+                           render        (bootstrap next-elements next-scene scene-state next-effects
+                                                    next-local-state ctx ctx-f props-f e)]
                        {:actions  actions
                         :render   render
                         :dom      #(do render)
