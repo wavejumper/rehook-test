@@ -95,32 +95,10 @@
 
         @scenes))))
 
-;;(simple-ui-test)
-
-(defui tabs
-  [_ props $]
-  ($ :div {:style {:display        "flex"
-                   :justifyContent "start"
-                   :flexWrap       "wrap"}}
-     (aget props "children")))
-
-(defui tab
-  [_ props $]
-  ($ :div {:style (merge {:marginRight "10px"
-                          :display     "inline"
-                          :padding     "5px"
-                          :border      "1px solid #ccc"
-                          :maxHeight   "40px"
-                          :cursor      "pointer"
-                          :userSelect  "none"}
-                         (js->clj (aget props "style")))}
-     (aget props "children")))
-
 (defn scene-key [index & words]
   (str "scene-" index "-" (str/join "-" words)))
 
-(defui code
-  [{:keys [scenes]} props $]
+(defui code [{:keys [scenes]} props $]
   (let [{:keys [index]} (js->clj props :keywordize-keys true)
         scene (current-scene scenes index)]
     ($ :div {:style {:overflow "scroll"}}
@@ -130,8 +108,7 @@
           (with-out-str
            (zp/zprint (js->clj ((:dom scene))) 80))))))
 
-(defui diff
-  [{:keys [scenes]} props $]
+(defui diff [{:keys [scenes]} props $]
   (let [{:keys [index]} (js->clj props :keywordize-keys true)
         scene (current-scene scenes index)
         prev-scene (previous-scene scenes index)]
@@ -145,8 +122,7 @@
                     ((:dom prev-scene)))
          80)))))
 
-(defui dom
-  [{:keys [scenes]} props $]
+(defui dom [{:keys [scenes]} props $]
   (let [{:keys [index]} (js->clj props :keywordize-keys true)
         scene (current-scene scenes index)
         dom   (:dom scene)]
@@ -159,8 +135,7 @@
         (ui [_ _]
           (dom))))))
 
-(defui state
-  [{:keys [scenes]} props]
+(defui state [{:keys [scenes]} props]
   (let [{:keys [index]} (js->clj props :keywordize-keys true)
         scene      (current-scene scenes index)
         prev-scene (previous-scene scenes index)
@@ -193,8 +168,7 @@
 
       [:div {} "No state mounted"])))
 
-(defui effects
-  [{:keys [scenes]} props]
+(defui effects [{:keys [scenes]} props]
   (let [{:keys [index]} (js->clj props :keywordize-keys true)
         scene        (current-scene scenes index)
         prev-scene   (previous-scene scenes index)
@@ -225,8 +199,7 @@
 
       [:div {} "No effects mounted"])))
 
-(defui tags
-  [{:keys [scenes]} props]
+(defui tags [{:keys [scenes]} props]
   (let [{:keys [index]} (js->clj props :keywordize-keys true)
         scene         (current-scene scenes index)
         prev-scene    (previous-scene scenes index)
@@ -256,8 +229,7 @@
 
       [:div {} "No tags found. Stick :rehook/id into one of your props :)"])))
 
-(defui elements
-  [{:keys [scenes]} props $]
+(defui elements [{:keys [scenes]} props $]
   (let [{:keys [index]} (js->clj props :keywordize-keys true)
         scene (current-scene scenes index)
         elements (some-> scene :elements deref)]
@@ -266,28 +238,7 @@
                (pr-str args)))
           elements)))
 
-(defui toggle-heading
-  [_ props $]
-  (let [title    (aget props "title")
-        on-click (aget props "onClick")
-        value    (aget props "value")]
-    ($ :div {:style {:display        "flex"
-                     :justifyContent "space-between"
-                     :alignItems     "center"
-                     :flexWrap       "wrap"
-                     :borderBottom   "1px solid #ccc"
-                     :maxHeight      "60px"}}
-       ($ :h2 {:style {:marginRight "20px"}}
-          title)
-
-       ($ :span {:onClick #(on-click (not value))
-                 :style   {:cursor "pointer"
-                           :userSelect "none"
-                           :color  "blue"}}
-          (if value "hide" "show")))))
-
-(defui test-assertion
-  [{:keys [scenes]} props]
+(defui test-assertion [{:keys [scenes]} props]
   (let [index         (aget props "index")
         test          (get-in scenes [:tests index])
         [show-details? set-show-details] (rehook/use-state true)
@@ -416,143 +367,80 @@
          :effects [effects {:index (:scene test)}]
          :state   [state {:index (:scene test)}]))]))
 
+(defui mutation [{:keys [scenes]} props]
+  (let [index (aget props "index")
+        test  (get-in scenes [:tests index])]
+    [:div {:style {:display         "flex"
+                   :marginTop       "20px"
+                   :border          "1px solid #ccc"
+                   :padding         "10px"
+                   :borderRadius    "3px"
+                   :color           "#F8F8F8"
+                   :justifyContent  "space-between"
+                   :alignItems      "center"
+                   :flexWrap        "wrap"
+                   :backgroundColor "#FCFCFC"}}
+
+     [:div {:style {:width      "50px"
+                    :height     "100%"
+                    :alignItems "left"}}
+      [:i {:className "material-icons"}
+       "changes"]]
+
+     [:div {:style {:fontWeight "1000"}}
+      (:item test)
+      [clojure-highlight {} (zpr-str (:mutation test))]]
+
+     [:div {:style {:border          "1px solid #ccc"
+                    :padding         "20px"
+                    :backgroundColor "#ccc"
+                    :fontSize        "24px"}}
+      (:scene test)
+      [:i {:className "material-icons"}
+       "trending_flat"]
+      (inc (:scene test))]]))
+
 (defui summary
   [{:keys [scenes]} _]
   (let [tests (:tests scenes)]
     (into [:div {}]
-          (map-indexed (fn [idx test]
-                 (case (:type test)
-                   :assertion
-                   [test-assertion {:index idx :key (str "assertions-" idx)}]
+          (map-indexed
+           (fn [idx test]
+             (case (:type test)
+               :assertion
+               [test-assertion {:index idx :key (str "assertions-" idx)}]
 
-                   :mutation
-                   [:div {:style {:display         "flex"
-                                  :marginTop       "20px"
-                                  :border          "1px solid #ccc"
-                                  :padding         "10px"
-                                  :borderRadius    "3px"
-                                  :color           "#F8F8F8"
-                                  :justifyContent  "space-between"
-                                  :alignItems      "center"
-                                  :flexWrap        "wrap"
-                                  :backgroundColor "#FCFCFC"}}
+               :mutation
+               [mutation {:index idx :key (str "mutation-" idx)}]))
+           tests))))
 
-                    [:div {:style {:width      "50px"
-                                   :height     "100%"
-                                   :alignItems "left"}}
-                     [:i {:className "material-icons"}
-                      "changes"]]
+(defui testcard [_ _]
+  [:div {:style {:border       "1px solid #d1d5da"
+                 :borderRadius "3px"
+                 :padding      "15px"}}
+   [:h2 {} "todomvc: clear completed"]
+   [summary]])
 
-                    [:div {:style {:fontWeight "1000"}}
-                     (:item test)
-                     [clojure-highlight {} (zpr-str (:mutation test))]]
+(defui heading [_ _]
+  [:h1 {}
+   [:a {:href   "https://github.com/wavejumper/rehook"
+        :target "_blank"}
+    "rehook"]])
 
-
-                    [:div {:style {:border          "1px solid #ccc"
-                                   :padding         "20px"
-                                   :backgroundColor "#ccc"
-                                   :fontSize        "24px"}}
-                     (:scene test)
-                     [:i {:className "material-icons"}
-                      "trending_flat"]
-                     (inc (:scene test))]]
-
-                   "mutation"))
-               tests))))
-
-(defui render-scene [_ _]
-  [:div {} [summary]])
-
-(defui testcard
-  [{:keys [scenes]} _ $]
-  (let [timeline (:timeline scenes)
-        [current-index set-index] (rehook/use-state 0)]
-    ($ :div {:style {:border "1px solid #d1d5da"
-                     :borderRadius "3px"
-                     :padding "15px"}}
-       ($ :h2 {} "todomvc: clear completed")
-
-       ($ render-scene
-          {:key   (str "scene-" current-index)
-           :index current-index}))))
-
-(defui heading
-  [_ _ $]
-  ($ :h1 {}
-     ($ :a {:href "https://github.com/wavejumper/rehook"
-            :target "_blank"}
-        "rehook")))
-
-(defui rehook-test-container
-  [_ _ $]
-  ($ :div {:style {:width       "calc(100% - 128px)"
-                   :maxMidth    "680px"
-                   :marginLeft  "64px"
-                   :marginRight "64px"
-                   :fontFamily  "'Open Sans', sans-serif"
-                   :lineHeight  "1.5"
-                   :color       "#24292e"}}
-
-     ($ heading)
-
-     ($ :h2 {}
-        ($ :a {:href "#about"} "About"))
-
-     ($ :p {} "rehook is built from small, modular blocks - each with an explicit notion of time, and a data-first design.")
-     ($ :p {} "As rehook is modular, each layer builds upon the last. Each layer adds a new idea: testing, syntax, devtools, patterns.")
-     ($ :p {} "rehook's value proposition is that React is the abstraction.")
-     ($ :p {} "The core library tries to do two things:")
-     ($ :ul {}
-        ($ :li {} "marry React hooks with Clojure atoms")
-        ($ :li {} "avoid singleton state"))
-
-     ($ :p {} "If you need a primer on what React hooks is, the API docs are a good start.")
-     ($ :p {} "React Hook's API shows us that functions are the ultimate interface! The React Hooks API already has many abstractions built on top of it, eg redux style reducers.")
-     ($ :p {} "It is my hope that rehook's core API could be used to build general and domain-specific abstractions on top: eg re-frame impls, om-next style querying etc.")
-
-     ($ :h2 {}
-        ($ :a {:href "#usage"} "Usage"))
-
-     ($ clojure-highlight {})
-
-     ($ :h2 {}
-        ($ :a {:href "#testing"}
-           "Testing"))
-
-     ($ :p {} "rehook allows you to test your entire application - from data layer to view.")
-     ($ :p {} "rehook-test supports:")
-     ($ :ul {}
-        ($ :li {} "server, react-dom and react-native")
-        ($ :li {} "cljs.test + nodejs target for headless/CI")
-        ($ :li {} "browser for devcards-like interactive development")
-        ($ :li {} "whatever else you can think of. it's just a function call really."))
-
-     ($ :h2 {} "Time-travel driven development")
-
-     ($ :p {} "Writing tests for rehook is not dissimilar to how you might test with datomic or kafka's TopologyTestDriver, with a bit of devcards in the mix.")
-     ($ :p {} "Each state change produces a snapshot in time that rehook captures as a 'scene'.")
-
-     ($ :p {} "Like kafka's ToplogyTestDriver, the tests run in a simulated library runtime.")
-     ($ :p {} "However, a read-only snapshot of the dom is rendered for each scene! This allows you to catch any runtime errors caused by invalid inputs for each re-render. ")
-
-     ($ :h2 {}
-        ($ :a {:href "#todos"} "TODOs (help wanted)"))
-     ($ :ul {}
-        ($ :li {} "Polish/package rehook-test for mass-consumption")
-        ($ :li {} "I want Github-level diffs between the previous scene and the next scene's hiccup. "
-           ($ :a {:href "https://github.com/praneshr/react-diff-viewer" :target "_blank"} "react-diff-viewer?"))
-        ($ :li {} "How can we use clojure spec and perhaps property based testing to put this thing on steroids? Eg, instrument and render the shrunk result")
-        ($ :li {} "This tool could be used during regular live-reload development. Eg, reframe10x but on even more steroids :)")
-        ($ :li {} "As it stands, it's 100% possible to render async tests (eg, test effects that use js/setTimeout, core.async, etc) -- document, explain etc.")
-        ($ :li {} "This tool **could** lint/detect various warnings/runtime problems. Eg, when a :key on a component is required, when state/effects are setup incorrectly, etc. Even better, the simulated runtime could detect/profile poor performing code :)"))
-
-     ($ :h2 {}
-        ($ :a {:href "#demo"} "Demo"))
-     ($ :p {} "The demo below is the output of the unit tests written for rehook's own todomvc.")
-     ($ :p {} "You can view the source code here.")
-     ($ :p {} "You can see the tests running in a headless CI environment here.")
-
-     ($ testcard)))
+(defui rehook-test-container [_ _]
+  [:div {:style {:width       "calc(100% - 128px)"
+                 :maxMidth    "680px"
+                 :marginLeft  "64px"
+                 :marginRight "64px"
+                 :fontFamily  "'Open Sans', sans-serif"
+                 :lineHeight  "1.5"
+                 :color       "#24292e"}}
+   [heading]
+   [:h2 {} "Demo"]
+   [:p {} "The demo below is the output of the unit tests written for rehook's own todomvc."]
+   [:p {} "You can view the source code here."]
+   [:p {} "You can see the tests running in a headless CI environment here."]
+   [testcard]])
 
 (defn ^:dev/after-load render! []
   (let [scenes (todo-test)]
