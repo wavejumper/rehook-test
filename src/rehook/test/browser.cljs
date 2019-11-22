@@ -402,15 +402,16 @@
         success?         (zero? (:fail test-stats))]
 
     (into [:div {}
-           [:div {:style {:color        (if success?
-                                          "green"
-                                          "red")
-                          :marginBottom "30px"}}
+           [:div {:style {:color (if success?
+                                   "green"
+                                   "red")}}
             output]]
           (map-indexed
            (fn [i {:keys [name ns]}]
-             [testcard {:key   (str "test-summary-" ns "/" name)
-                        :index i}])
+             [:div {:style {:marginTop "30px"}
+                    :key   (str "test-summary-" ns "/" name)}
+              [testcard {:key   (str "test-summary-" ns "/" name "/testcard")
+                         :index i}]])
            test-results))))
 
 (defui rehook-summary [{:keys [registry test-results]} _]

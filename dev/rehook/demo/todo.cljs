@@ -66,7 +66,8 @@
         clear (:clear-done events)
         [filt set-filt] (rehook/use-atom-path todo-filter [:filter])]
     ($ :div {}
-       ($ :span #js {:id "todo-count"}
+       ($ :span {:id "todo-count"
+                 :rehook/id :items-left}
           ($ :strong {} active) " " (case active 1 "item" "items") " left")
        ($ :ul {:id "filters"}
           ($ :li {}
