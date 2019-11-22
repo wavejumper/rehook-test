@@ -4,6 +4,7 @@
             [rehook.dom.browser :as dom.browser]
             ["react-highlight" :as Highlight]
             ["react-frame-component" :as Frame]
+            ["react-error-boundary" :as ErrorBoundary]
             [zprint.core :as zp]
             [clojure.string :as str]
             [clojure.data :as data]))
@@ -14,6 +15,12 @@
 (def highlight
   (aget Highlight "default"))
 
+(def error-boundary
+  (aget ErrorBoundary "default"))
+
+(def frame
+  (aget Frame "default"))
+
 (defn zpr-str
   ([code]
    (zpr-str code 80))
@@ -23,9 +30,6 @@
 
 (defui clojure-highlight [_ props $]
   (apply $ highlight {:language "clojure"} (aget props "children")))
-
-(def frame
-  (aget Frame "default"))
 
 (defn current-scene [scenes index]
   (get-in scenes [:timeline index]))
@@ -38,15 +42,25 @@
 (defn scene-key [index & words]
   (str "scene-" index "-" (str/join "-" words)))
 
+(defui error-handler [{:keys [title]} props]
+  (let [error      (aget props "error")
+        stacktrace (aget props "componentStack")]
+    [:div {}
+     [:h1 {} (str title)]
+     [clojure-highlight {} (zpr-str error 120)]
+     [highlight {:language "javascript"} (str stacktrace)]]))
+
 (defui code [{:keys [scenes]} props $]
   (let [{:keys [index]} (js->clj props :keywordize-keys true)
         scene (current-scene scenes index)]
-    ($ :div {:style {:overflow "scroll"}}
-       ($ highlight
-          {:language "clojure"
-           :key      (scene-key index "code")}
-          (with-out-str
-           (zp/zprint (js->clj ((:dom scene))) 80))))))
+    ($ error-boundary
+       {:FallbackComponent (error-handler {:title "Error rendering Hiccup. You likely found a bug with rehook."} $)}
+       ($ :div {:style {:overflow "scroll"}}
+          ($ highlight
+             {:language "clojure"
+              :key      (scene-key index "code")}
+             (with-out-str
+              (zp/zprint (js->clj ((:dom scene))) 80)))))))
 
 (defui diff [{:keys [scenes]} props $]
   (let [{:keys [index]} (js->clj props :keywordize-keys true)
@@ -66,14 +80,16 @@
   (let [{:keys [index]} (js->clj props :keywordize-keys true)
         scene (current-scene scenes index)
         dom   (:dom scene)]
-    ($ frame {:initialContent HTML
-              :style {:height "400px"
-                      :width "100%"}}
-       ;; bootstrap iframe with 'sandboxed' ctx
-       (dom.browser/bootstrap
-        {} identity clj->js
-        (ui [_ _]
-          (dom))))))
+    ($ error-boundary
+       {:FallbackComponent (error-handler {:title "Error rendering to the DOM. You likely found a bug with rehook."} $)}
+       ($ frame {:initialContent HTML
+                 :style          {:height "400px"
+                                  :width  "100%"}}
+          ;; bootstrap iframe with 'sandboxed' ctx
+          (dom.browser/bootstrap
+           {} identity clj->js
+           (ui [_ _]
+             (dom)))))))
 
 (defui state [{:keys [scenes]} props]
   (let [{:keys [index]} (js->clj props :keywordize-keys true)
