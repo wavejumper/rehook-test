@@ -16,36 +16,38 @@
          :args (s/tuple symbol? ::init-args)
          :body (s/* any?)))
 
-(defmacro io [scene msg form]
+(defmacro io [scene title form]
   `(binding [*scene* ~scene]
      (when (nil? *report*)
        (throw (ex-info "io called outside of test" {:scene *scene* :form '~form})))
 
      (try ~form
-          (swap! *report* conj {:scene (:index *scene*)
-                                :form  '~form
-                                :type  :mutation
-                                :msg   ~msg})
-          (catch Throwable e#
+          (swap! *report* update :tests conj
+                 {:scene (-> *scene* :ticks dec)
+                  :form  '~form
+                  :type  :mutation
+                  :title ~title})
+          (catch js/Error e#
             (throw (ex-info "io failed" {:scene  *scene*
                                          :form   '~form
                                          :report (deref *report*)}
                             e#))))))
 
-(defmacro is [scene msg form]
+(defmacro is [scene title form]
   `(binding [*scene* ~scene]
      (when (nil? *report*)
        (throw (ex-info "assertion called outside of test" {:scene *scene* :form '~form})))
 
      (let [res# ~form]
-       (cljs.test/testing ~msg
+       (cljs.test/testing ~title
          (cljs.test/is res#))
 
-       (swap! *report* conj {:scene (:index *scene*)
-                             :form  '~form
-                             :type  :assertion
-                             :msg   ~msg
-                             :pass  (if res# true false)}))))
+       (swap! *report* update :tests conj
+              {:scene (-> *scene* :ticks dec)
+               :form  '~form
+               :type  :assertion
+               :title ~title
+               :pass  (if res# true false)}))))
 
 (defmacro with-component-mounted
   [[component-sym component] & body]
@@ -55,11 +57,27 @@
           (finally
             (rehook.test/unmount! component#)))))
 
-(defmacro defuitest [name [scenes [ctx ctx-f props-f e]] & body]
-  `(binding [*report* (atom [])]
-     (let [~scenes (rehook.test/init ~ctx ~ctx-f ~props-f ~e)]
-       ~@body
-       (deref *report*))))
-
-#_(is {:xyz ""} "XYZ shoud do blah"
-      (inc ))
+(defmacro defuitest
+  [name [scenes args] & body]
+  `(defn ~(vary-meta name assoc
+                     :rehook/test? true
+                     :test `(fn []
+                              (binding [*report* (atom {:form  '~body
+                                                        :name  ~(str name)
+                                                        :tests []})]
+                                (let [system#         ~(:system args)
+                                      system-args#    ~(:system/args args)
+                                      invoked-system# (apply system# system-args#)
+                                      ctx-f#          ~(:ctx-f args)
+                                      props-f#        ~(:props-f args)
+                                      component#      ~(:component args)
+                                      shutdown-f#     ~(:shutdown-f args)
+                                      scenes#         (rehook.test/init invoked-system# ctx-f# props-f# component#)
+                                      ~scenes         scenes#]
+                                  (try
+                                    ~@body
+                                    (assoc (deref *report*) :scenes (deref scenes#))
+                                    (finally
+                                      (shutdown-f# invoked-system#)))))))
+     []
+     ::huh))

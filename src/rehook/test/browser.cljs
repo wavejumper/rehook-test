@@ -71,7 +71,7 @@
                       :width "100%"}}
        ;; bootstrap iframe with 'sandboxed' ctx
        (dom.browser/bootstrap
-        {} identity identity
+        {} identity clj->js
         (ui [_ _]
           (dom))))))
 
@@ -193,9 +193,9 @@
        [:strong {} title]
        title)]))
 
-(defui test-assertion [{:keys [scenes]} props]
+(defui test-assertion [{:keys [tests]} props]
   (let [index         (aget props "index")
-        test          (get-in scenes [:tests index])
+        test          (get tests index)
         [show-details? set-show-details] (rehook/use-state true)
         [tab set-tab] (rehook/use-state :dom)]
 
@@ -226,8 +226,8 @@
         (if (:pass test) "done" "highlight_off")]]
 
       [:div {:style {:fontWeight "1000"}}
-       (:item test)
-       [clojure-highlight {} (zpr-str (:sexp test))]]
+       (:title test)
+       [clojure-highlight {} (zpr-str (:form test))]]
 
       [:div {:style {:border          "1px solid #ccc"
                      :padding         "20px"
@@ -282,15 +282,15 @@
          :effects [effects {:index (:scene test)}]
          :state   [state {:index (:scene test)}]))]))
 
-(defui mutation [{:keys [scenes]} props]
+(defui mutation [{:keys [tests]} props]
   (let [index (aget props "index")
-        test  (get-in scenes [:tests index])]
+        test  (get tests index)]
     [:div {:style {:display         "flex"
                    :marginTop       "20px"
                    :border          "1px solid #ccc"
                    :padding         "10px"
                    :borderRadius    "3px"
-                   :color           "#F8F8F8"
+                   :color           "#444"
                    :justifyContent  "space-between"
                    :alignItems      "center"
                    :flexWrap        "wrap"
@@ -303,8 +303,8 @@
        "changes"]]
 
      [:div {:style {:fontWeight "1000"}}
-      (:item test)
-      [clojure-highlight {} (zpr-str (:mutation test))]]
+      (:title test)
+      [clojure-highlight {} (zpr-str (:form test))]]
 
      [:div {:style {:border          "1px solid #ccc"
                     :padding         "20px"
@@ -315,22 +315,23 @@
        "trending_flat"]
       (inc (:scene test))]]))
 
-(defui summary [{:keys [scenes]} _]
-  (let [tests (:tests scenes)]
-    (into [:div {}]
-          (map-indexed
-           (fn [idx test]
-             (case (:type test)
-               :assertion [test-assertion {:index idx :key (str "assertions-" idx)}]
-               :mutation  [mutation {:index idx :key (str "mutation-" idx)}]))
-           tests))))
+(defui summary [{:keys [tests]} _]
+  (into [:div {}]
+        (map-indexed
+         (fn [idx test]
+           (case (:type test)
+             :assertion [test-assertion {:index idx :key (str "assertions-" idx)}]
+             :mutation [mutation {:index idx :key (str "mutation-" idx)}]))
+         tests)))
 
-(defui testcard [_ _]
-  [:div {:style {:border       "1px solid #d1d5da"
-                 :borderRadius "3px"
-                 :padding      "15px"}}
-   [:h2 {} "todomvc: clear completed"]
-   [summary]])
+(defui testcard [{:keys [name form]} _]
+  (let [test-str (zpr-str (first form))]
+    [:div {:style {:border       "1px solid #d1d5da"
+                   :borderRadius "3px"
+                   :padding      "15px"}}
+     [:h2 {} name]
+     [clojure-highlight {} test-str]
+     [summary]]))
 
 (defn render-test [test]
-  (dom.browser/bootstrap {:scenes test} identity clj->js testcard))
+  (dom.browser/bootstrap test identity clj->js testcard))

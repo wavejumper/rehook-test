@@ -1,6 +1,7 @@
 (ns rehook.test
   (:require [rehook.core :as rehook]
-            [rehook.util :as util]))
+            [rehook.util :as util]
+            [cljs.test]))
 
 (defn- ctx-transformer [ctx elem]
   (update ctx :rehook.test/id
@@ -88,7 +89,7 @@
 
 (defn init
   [ctx ctx-f props-f e]
-  (let [scenes (atom {:timeline [] :tests []})]
+  (let [scenes (atom {:timeline []})]
     (letfn [(next-scene [next-local-state]
               (swap! scenes update :timeline
                      (fn [timeline]
@@ -123,9 +124,6 @@
 (def ^:dynamic *report* nil)
 (def ^:dynamic *scene* nil)
 
-(defn total-scenes [scenes]
-  (or (some-> scenes deref :timeline count) 0))
-
 (defn children
   ([id]
    (when-not *scene*
@@ -149,7 +147,7 @@
    (when-not *scene*
      (throw (ex-info "rehook.test/get-prop called outside of test" {:id id :k k :args args})))
    (invoke-prop *scene* id k args))
-  
+
   ([scene id k args]
    (if-let [f (get-prop scene id k)]
      (apply f args)

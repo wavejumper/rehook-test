@@ -6,34 +6,33 @@
             ["react-dom" :as react-dom]
             [rehook.demo.todo :as todo]))
 
+(def todo-app
+  {:system    todo/system
+   :ctx-f     identity
+   :props-f   identity
+   :component todo/todo-app})
+
+(defuitest todo-test--clear-completed
+  [scenes {:system      todo/system
+           :system/args []
+           :shutdown-f  identity
+           :ctx-f       identity
+           :props-f     identity
+           :component   todo/todo-app}]
+
+  (with-component-mounted [initial-render (rehook.test/mount! scenes)]
+    (is initial-render "Initial render should show 4 TODO items"
+      (= (rehook.test/children :clear-completed) ["Clear completed " 4]))
+
+    (io initial-render "Click clear completed"
+      (rehook.test/invoke-prop :clear-completed :onClick [{}]))
+
+    (with-component-mounted [render2 (rehook.test/mount! scenes initial-render)]
+      (is render2 "After clicking 'Clear Completed' it should clear TODO items"
+        (nil? (rehook.test/children :clear-completed))))))
+
 (defn todo-test []
-  (let [scenes (rehook.test/init (todo/system) identity clj->js todo/todo-app)]
-    (with-component-mounted [scene1 (rehook.test/mount! scenes)]
-      (is scene1 "Initial render should show 4 TODO items" true)
-      (swap! scenes update :tests conj
-             {:item "Initial render should show 4 TODO items"
-              :pass true
-              :type :assertion
-              :scene 0
-              :sexp '(= 4 (count state))})
-
-      (swap! scenes update :tests conj
-             {:mutation [:invoke-prop :clear-completed :onClick]
-              :type     :mutation
-              :pass     true
-              :scene    0})
-
-      (swap! scenes update :tests conj
-             {:item "After clicking 'Clear Completed' it should clear TODO items"
-              :pass true
-              :scene 1
-              :type  :assertion
-              :sexp '(= 0 (count state))})
-
-      (rehook.test/invoke-prop scene1 :clear-completed :onClick {})
-
-      (with-component-mounted [_ (rehook.test/mount! scenes scene1)]
-        @scenes))))
+  ((:test (meta #'todo-test--clear-completed))))
 
 (defui heading [_ _]
   [:h1 {}
@@ -57,10 +56,10 @@
    [test.browser/testcard]])
 
 (defn ^:dev/after-load render! []
-  (let [scenes (todo-test)]
+  (let [test-result (todo-test)]
     (js/console.log "rendering rehook.test ~~~ ♪┏(・o･)┛♪")
     (react-dom/render
-     (dom.browser/bootstrap {:scenes scenes} identity clj->js rehook-test-container)
+     (dom.browser/bootstrap test-result identity clj->js rehook-test-container)
      (js/document.getElementById "app"))))
 
 (defn main []
