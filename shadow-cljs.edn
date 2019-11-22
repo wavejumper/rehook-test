@@ -13,10 +13,10 @@
    :output-dir "public/js"
    :asset-path "/js"
    :closure-defines {rehook.test.browser/HTML "<!DOCTYPE html><html><head><link rel=\"stylesheet\" href=\"styles/todo.css\"></head><body><div></div></body></html>"}
-   :devtools {:preloads [devtools.preload
-                         rehook.test.browser]}
-   :modules {:main {:entries [rehook.demo.app]
-                    :init-fn rehook.test.browser/report}}}
+   :devtools {:preloads [devtools.preload]}
+   :modules {:main {:entries [rehook.test.browser rehook.demo.app]
+                    :init-fn rehook.test.browser/report}}
+   :release {:compiler-options {:optimizations :simple}}}
 
   :test
   {:target    :node-test

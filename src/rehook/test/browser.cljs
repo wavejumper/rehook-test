@@ -13,6 +13,7 @@
 
 (goog-define HTML "")
 (goog-define target "app")
+(goog-define domheight 400)
 
 (def highlight
   (aget Highlight "default"))
@@ -94,7 +95,7 @@
     ($ error-boundary
        {:FallbackComponent (error-handler {:title "Error rendering to the DOM. You likely found a bug with rehook."} $)}
        ($ frame {:initialContent HTML
-                 :style          {:height "400px"
+                 :style          {:height (str domheight "px")
                                   :width  "100%"}}
           ;; bootstrap iframe with 'sandboxed' ctx
           (dom.browser/bootstrap
@@ -328,12 +329,11 @@
   (let [index (aget props "index")
         [{:keys [name form ns line tests]} _] (rehook/use-atom-path test-results [index])
         test-str (zpr-str (first form))
-        title (str ns "/" name ":" line)
-        pass? (->> tests
-                   (filter #(= :assertion (:type %)))
-                   (every? :pass))
+        assertions (filter #(= :assertion (:type %)) tests)
+        pass? (every? :pass assertions)
         [show-code-snippet? set-show-code-snippet] (rehook/use-state true)
-        [expanded? set-expanded] (rehook/use-state (not pass?))]
+        [expanded? set-expanded] (rehook/use-state (not pass?))
+        title (str ns "/" name ":" line " (" (count assertions) " assertions)")]
 
     [:div {:style {:border       "1px solid"
                    :borderRadius "3px"
@@ -350,7 +350,7 @@
                     :flexGrow "1"}
             :onClick #(set-expanded (not expanded?))}
 
-      [:h2 {:style {:color  "#222"}}
+      [:h2 {:style {:color "#222"}}
        [:span {:style {:marginRight "5px"}}
         [material-icon {:icon (if expanded?
                                 "keyboard_arrow_down"
@@ -396,24 +396,22 @@
     (str total-tests " " test-str ", " total-assertions " " assertion-str ", " fail " " fail-str ".")))
 
 (defui report-summary [{:keys [test-results]} _]
-  (let [[test-results _] (rehook/use-atom test-results)]
+  (let [[test-results _] (rehook/use-atom test-results)
+        test-stats       (test-stats test-results)
+        output           (test-outcome-str test-stats)
+        success?         (zero? (:fail test-stats))]
 
-    (let [test-stats (test-stats test-results)
-          output     (test-outcome-str test-stats)
-          success?   (zero? (:fail test-stats))]
-
-      (into [:div {}
-             [:div {:style {:color (if success?
-                                     "green"
-                                     "red")
-                            :marginBottom "30px"}}
-              output]]
-
-            (map-indexed
-             (fn [i {:keys [name ns]}]
-               [testcard {:key (str "test-summary-" ns "/" name)
-                          :index i}])
-             test-results)))))
+    (into [:div {}
+           [:div {:style {:color        (if success?
+                                          "green"
+                                          "red")
+                          :marginBottom "30px"}}
+            output]]
+          (map-indexed
+           (fn [i {:keys [name ns]}]
+             [testcard {:key   (str "test-summary-" ns "/" name)
+                        :index i}])
+           test-results))))
 
 (defui rehook-summary [{:keys [registry test-results]} _]
   (let [[registry _] (rehook/use-atom registry)]
@@ -426,6 +424,8 @@
        (->> registry
             (mapv (fn [[_ var]]
                     (run-test! (meta var))))
+            (sort-by #(str (:ns %) "-" (:name %)))
+            (vec)
             (reset! test-results))
        (constantly nil)))
 
