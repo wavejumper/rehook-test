@@ -58,25 +58,27 @@
          :style {:userSelect "none"}}
      icon]))
 
-(defui code [{:keys [scenes]} props $]
-  (let [{:keys [index]} (js->clj props :keywordize-keys true)
-        scene (current-scene scenes index)]
+(defui code [{:keys [test-results]} props $]
+  (let [[idx1 idx2] (aget props "path")
+        [scenes _]  (rehook/use-atom-path test-results [idx1 :scenes])
+        scene       (current-scene scenes idx2)]
     ($ error-boundary
        {:FallbackComponent (error-handler {:title "Error rendering Hiccup. You likely found a bug with rehook."} $)}
        ($ :div {:style {:overflow "scroll"}}
           ($ highlight
              {:language "clojure"
-              :key      (scene-key index "code")}
+              :key      (scene-key idx2 "code")}
              (with-out-str
               (zp/zprint (js->clj ((:dom scene))) 80)))))))
 
-(defui diff [{:keys [scenes]} props $]
-  (let [{:keys [index]} (js->clj props :keywordize-keys true)
-        scene (current-scene scenes index)
-        prev-scene (previous-scene scenes index)]
+(defui diff [{:keys [test-results]} props $]
+  (let [[idx1 idx2] (aget props "path")
+        [scenes _]  (rehook/use-atom-path test-results [idx1 :scenes])
+        scene       (current-scene scenes idx2)
+        prev-scene  (previous-scene scenes idx2)]
     ($ highlight
        {:language "clojure"
-        :key      (scene-key index "code-diff")}
+        :key      (scene-key idx2 "code-diff")}
        (with-out-str
         (zp/zprint
 
@@ -84,10 +86,11 @@
                     ((:dom prev-scene)))
          80)))))
 
-(defui dom [{:keys [scenes]} props $]
-  (let [{:keys [index]} (js->clj props :keywordize-keys true)
-        scene (current-scene scenes index)
-        dom   (:dom scene)]
+(defui dom [{:keys [test-results]} props $]
+  (let [[idx1 idx2] (aget props "path")
+        [scenes _]  (rehook/use-atom-path test-results [idx1 :scenes])
+        scene       (current-scene scenes idx2)
+        dom         (:dom scene)]
     ($ error-boundary
        {:FallbackComponent (error-handler {:title "Error rendering to the DOM. You likely found a bug with rehook."} $)}
        ($ frame {:initialContent HTML
@@ -99,12 +102,13 @@
            (ui [_ _]
              (dom)))))))
 
-(defui state [{:keys [scenes]} props]
-  (let [{:keys [index]} (js->clj props :keywordize-keys true)
-        scene      (current-scene scenes index)
-        prev-scene (previous-scene scenes index)
-        state      (some-> scene :state deref)
-        prev-state (some-> prev-scene :state deref)]
+(defui state [{:keys [test-results]} props]
+  (let [[idx1 idx2] (aget props "path")
+        [scenes _]  (rehook/use-atom-path test-results [idx1 :scenes])
+        scene       (current-scene scenes idx2)
+        prev-scene  (previous-scene scenes idx2)
+        state       (some-> scene :state deref)
+        prev-state  (some-> prev-scene :state deref)]
     (if state
       [:div {:style {:overflowX "auto"}}
        [:table {}
@@ -130,11 +134,12 @@
 
       [:div {} "No state mounted"])))
 
-(defui effects [{:keys [scenes]} props]
-  (let [{:keys [index]} (js->clj props :keywordize-keys true)
-        scene        (current-scene scenes index)
-        prev-scene   (previous-scene scenes index)
+(defui effects [{:keys [test-results]} props]
+  (let [[idx1 idx2]  (aget props "path")
+        [scenes _]   (rehook/use-atom-path test-results [idx1 :scenes])
+        scene        (current-scene scenes idx2)
         effects      (some-> scene :effects deref)
+        prev-scene   (previous-scene scenes idx2)
         prev-effects (some-> prev-scene :effects deref)]
     (if effects
       [:div {:style {:overflowX "auto"}}
@@ -156,49 +161,10 @@
                         [:td {} (dec i)]
                         [:td {} (pr-str prev-deps)]
                         [:td {} (pr-str deps)]
-                        [:td {} (pr-str (rehook.test/eval-effect? index prev-deps deps))]]))
+                        [:td {} (pr-str (rehook.test/eval-effect? idx2 prev-deps deps))]]))
                    effects))]]
 
       [:div {} "No effects mounted"])))
-
-(defui tags [{:keys [scenes]} props]
-  (let [{:keys [index]} (js->clj props :keywordize-keys true)
-        scene         (current-scene scenes index)
-        prev-scene    (previous-scene scenes index)
-        elements      (some-> scene :elements deref not-empty)
-        prev-elements (some-> prev-scene :elements deref)]
-    (if elements
-      [:div {:style {:overflowX "auto"}}
-       [:table {}
-        [:thead {}
-         [:tr {}
-          [:th {} "key"]
-          [:th {} "prev props"]
-          [:th {} "props"]
-          [:th {} "evaled"]
-          [:th {} "children"]]]
-        (into [:tbody {}]
-              (map (fn [[k {:keys [args evaled children]}]]
-                     (let [prev-args (get-in prev-elements [k :args])]
-                       [:tr {:key (pr-str index "-" k)}
-                        [:td {} (pr-str k)]
-                        [:td {} [clojure-highlight {}
-                                 (zpr-str prev-args)]]
-                        [:td {} [clojure-highlight {} (zpr-str args)]]
-                        [:td {} (pr-str evaled)]
-                        [:td {} (pr-str children)]])))
-              elements)]]
-
-      [:div {} "No tags found. Stick :rehook/id into one of your props :)"])))
-
-(defui elements [{:keys [scenes]} props $]
-  (let [{:keys [index]} (js->clj props :keywordize-keys true)
-        scene (current-scene scenes index)
-        elements (some-> scene :elements deref)]
-    (mapv (fn [[k args]]
-            ($ :div {:key (scene-key index "elements" (name k))}
-               (pr-str args)))
-          elements)))
 
 (defui button [_ props]
   (let [on-click (aget props "onClick")
@@ -217,11 +183,12 @@
        [:strong {} title]
        title)]))
 
-(defui test-assertion [{:keys [tests]} props]
-  (let [index         (aget props "index")
-        test          (get tests index)
+(defui test-assertion [{:keys [test-results]} props]
+  (let [[idx1 idx2]                      (aget props "path")
+        path                             [idx1 :tests idx2]
+        [test _]                         (rehook/use-atom-path test-results path)
         [show-details? set-show-details] (rehook/use-state true)
-        [tab set-tab] (rehook/use-state :dom)]
+        [tab set-tab]                    (rehook/use-state :dom)]
 
     (rehook/use-effect
      (fn []
@@ -303,15 +270,16 @@
 
      (when show-details?
        (case tab
-         :dom     [dom {:index (:scene test)}]
-         :hiccup  [code {:index (:scene test)}]
-         :diff    [diff {:index (:scene test)}]
-         :effects [effects {:index (:scene test)}]
-         :state   [state {:index (:scene test)}]))]))
+         :dom     [dom {:path [idx1 (:scene test)]}]
+         :hiccup  [code {:path [idx1 (:scene test)]}]
+         :diff    [diff {:path [idx1 (:scene test)]}]
+         :effects [effects {:path [idx1 (:scene test)]}]
+         :state   [state {:path [idx1 (:scene test)]}]))]))
 
-(defui mutation [{:keys [tests]} props]
-  (let [index (aget props "index")
-        test  (get tests index)]
+(defui mutation [{:keys [test-results]} props]
+  (let [[idx1 idx2] (aget props "path")
+        path        [idx1 :tests idx2]
+        [test _]    (rehook/use-atom-path test-results path)]
     [:div {:style {:display         "flex"
                    :marginTop       "20px"
                    :border          "1px solid #ccc"
@@ -343,31 +311,64 @@
       [material-icon {:icon "trending_flat"}]
       (inc (:scene test))]]))
 
-(defui summary [{:keys [tests]} _]
-  (into [:div {}]
-        (map-indexed
-         (fn [idx test]
-           (case (:type test)
-             :assertion [test-assertion {:index idx :key (str "assertions-" idx)}]
-             :mutation  [mutation {:index idx :key (str "mutation-" idx)}]))
-         tests)))
+(defui summary [{:keys [test-results]} props]
+  (let [index (aget props "index")
+        [{:keys [name ns tests]} _] (rehook/use-atom-path test-results [index])]
+    (into [:div {}]
+          (map-indexed
+           (fn [idx test]
+             (case (:type test)
+               :assertion [test-assertion {:path [index idx]
+                                           :key  (str ns "/" name "/" "assertion-" idx)}]
+               :mutation [mutation {:path [index idx]
+                                    :key  (str ns "/" name "/" "mutation-" idx)}]))
+           tests))))
 
-(defui testcard [{:keys [name form]} _]
-  (let [test-str (zpr-str (first form))
-        [show-code-snippet? set-show-code-snippet] (rehook/use-state true)]
-    [:div {:style {:border       "1px solid #d1d5da"
+(defui testcard [{:keys [test-results]} props]
+  (let [index (aget props "index")
+        [{:keys [name form ns line tests]} _] (rehook/use-atom-path test-results [index])
+        test-str (zpr-str (first form))
+        title (str ns "/" name ":" line)
+        pass? (->> tests
+                   (filter #(= :assertion (:type %)))
+                   (every? :pass))
+        [show-code-snippet? set-show-code-snippet] (rehook/use-state true)
+        [expanded? set-expanded] (rehook/use-state (not pass?))]
+
+    [:div {:style {:border       "1px solid"
                    :borderRadius "3px"
-                   :padding      "15px"}}
-     [:h2 {} name]
-     [:div {:onClick #(set-show-code-snippet (not show-code-snippet?))
-            :style {:color "blue"
-                    :cursor "pointer"
-                    :userSelect "none"}}
-      (if show-code-snippet? "Hide test" "Show test")]
+                   :borderLeft   "15px solid"
+                   :display      "flex"
+                   :borderColor  (if pass?
+                                   "#77DD77"
+                                   "#B74747")
+                   :paddingLeft "15px"
+                   :paddingRight "15px"
+                   :flexDirection "column"}}
 
-     (when show-code-snippet?
-       [clojure-highlight {} test-str])
-     [summary]]))
+     [:div {:style {:cursor "pointer"
+                    :flexGrow "1"}
+            :onClick #(set-expanded (not expanded?))}
+
+      [:h2 {:style {:color  "#222"}}
+       [:span {:style {:marginRight "5px"}}
+        [material-icon {:icon (if expanded?
+                                "keyboard_arrow_down"
+                                "chevron_right")}]]
+       title]]
+
+     (when expanded?
+       [:div {:onClick #(set-show-code-snippet (not show-code-snippet?))
+              :style   {:color      "blue"
+                        :cursor     "pointer"
+                        :userSelect "none"}}
+        (if show-code-snippet? "Hide test form" "Show test form")]
+
+
+       (when show-code-snippet?
+         [clojure-highlight {} test-str])
+
+       [summary {:index index}])]))
 
 (defn run-test!
   [{:keys [test column line end-line end-column ns]}]
@@ -396,17 +397,24 @@
 (defui report-summary [{:keys [test-results]} _]
   (let [[test-results _] (rehook/use-atom test-results)]
 
-    (js/console.log (test-stats test-results))
-
     (let [test-stats (test-stats test-results)
           output     (test-outcome-str test-stats)
           success?   (zero? (:fail test-stats))]
-      [:div {:style {:color (if success?
-                              "#77DD77"
-                              "#B74747")}}
-       output])))
 
-(defui test-summary [{:keys [registry test-results]} _]
+      (into [:div {}
+             [:div {:style {:color (if success?
+                                     "green"
+                                     "red")
+                            :marginBottom "30px"}}
+              output]]
+
+            (map-indexed
+             (fn [i {:keys [name ns]}]
+               [testcard {:key (str "test-summary-" ns "/" name)
+                          :index i}])
+             test-results)))))
+
+(defui rehook-summary [{:keys [registry test-results]} _]
   (let [[registry _] (rehook/use-atom registry)]
 
     ;; Re-run our tests everytime the registry updates.
@@ -415,8 +423,8 @@
        (js/console.log "%c running rehook.test report ~~~ ♪┏(・o･)┛♪"
                        "background: #222; color: #bada55")
        (->> registry
-            (map (fn [[_ var]]
-                   (run-test! (meta var))))
+            (mapv (fn [[_ var]]
+                    (run-test! (meta var))))
             (reset! test-results))
        (constantly nil)))
 
@@ -427,7 +435,11 @@
                    :fontFamily  "'Open Sans', sans-serif"
                    :lineHeight  "1.5"
                    :color       "#24292e"}}
-     [:h1 {} "rehook-test"]
+     [:h1 {}
+      [:a {:href "https://github.com/wavejumper/rehook"
+           :target "_blank"}
+       "rehook-test"]]
+
      [report-summary]]))
 
 (defn report []
@@ -438,5 +450,5 @@
      :test-results (atom [])}
     identity
     clj->js
-    test-summary)
+    rehook-summary)
    (js/document.getElementById target)))
