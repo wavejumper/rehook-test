@@ -50,6 +50,12 @@
      [clojure-highlight {} (zpr-str error 120)]
      [highlight {:language "javascript"} (str stacktrace)]]))
 
+(defui material-icon [_ props]
+  (let [icon (aget props "icon")]
+    [:i {:className "material-icons"
+         :style {:userSelect "none"}}
+     icon]))
+
 (defui code [{:keys [scenes]} props $]
   (let [{:keys [index]} (js->clj props :keywordize-keys true)
         scene (current-scene scenes index)]
@@ -238,8 +244,8 @@
       [:div {:style {:width      "50px"
                      :height     "100%"
                      :alignItems "left"}}
-       [:i {:className "material-icons"}
-        (if (:pass test) "done" "highlight_off")]]
+       [material-icon
+        {:icon (if (:pass test) "done" "highlight_off")}]]
 
       [:div {:style {:fontWeight "1000"}}
        (:title test)
@@ -315,8 +321,7 @@
      [:div {:style {:width      "50px"
                     :height     "100%"
                     :alignItems "left"}}
-      [:i {:className "material-icons"}
-       "changes"]]
+      [material-icon {:icon "changes"}]]
 
      [:div {:style {:fontWeight "1000"}}
       (:title test)
@@ -327,8 +332,7 @@
                     :backgroundColor "#ccc"
                     :fontSize        "24px"}}
       (:scene test)
-      [:i {:className "material-icons"}
-       "trending_flat"]
+      [material-icon {:icon "trending_flat"}]
       (inc (:scene test))]]))
 
 (defui summary [{:keys [tests]} _]

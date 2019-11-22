@@ -45,12 +45,14 @@
         stop #(do (setter "")
                   (when onStop (onStop)))
         save #(let [v (-> val str clojure.string/trim)]
-                (if-not (empty? v) (onSave v))
-                (stop))]
+                (if-not (empty? v)
+                  (onSave v)
+                  (stop)))]
     ($ :input {:type        "text"
+               :rehook/id   :todo-input
                :value       val
                :id          id
-               :className       class
+               :className   class
                :placeholder placeholder
                :onBlur      save
                :onChange    #(setter (-> % .-target .-value))
@@ -106,15 +108,16 @@
              "Delete")
           (when editing
             ($ todo-input {:className "edit"
-                           :title title
-                           :onSave #(save id %)
-                           :onStop #(setter false)}))))))
+                           :title     title
+                           :onSave    #(save id %)
+                           :onStop    #(setter false)}))))))
 
 (defui todo-app
   [{:keys [todo-filter todos] :as ctx} _ $]
   (let [[filt _] (rehook/use-atom-path todo-filter [:filter])
         [todos _] (rehook/use-atom todos)
         complete-all (-> ctx :events :complete-all)
+        add-todo (-> ctx :events :add-todo)
         items  (vals todos)
         done   (->> items (filter :done) count)
         active (- (count items) done)]
