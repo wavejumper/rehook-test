@@ -249,12 +249,14 @@
 
       [:div {:style {:fontWeight "1000"}}
        (:title test)
-       [clojure-highlight {} (zpr-str (:form test))]]
+       [clojure-highlight {} (zpr-str (:form test) 80)]]
 
       [:div {:style {:border          "1px solid #ccc"
                      :padding         "20px"
                      :backgroundColor "#ccc"
-                     :fontSize        "24px"}}
+                     :fontSize        "24px"
+                     :textAlign       "center"
+                     :width           "70px"}}
        (:scene test)]]
 
      [:div {:style {:display        "flex"
@@ -325,12 +327,14 @@
 
      [:div {:style {:fontWeight "1000"}}
       (:title test)
-      [clojure-highlight {} (zpr-str (:form test))]]
+      [clojure-highlight {} (zpr-str (:form test) 80)]]
 
      [:div {:style {:border          "1px solid #ccc"
                     :padding         "20px"
                     :backgroundColor "#ccc"
-                    :fontSize        "24px"}}
+                    :fontSize        "24px"
+                    :textAlign       "center"
+                    :width           "70px"}}
       (:scene test)
       [material-icon {:icon "trending_flat"}]
       (inc (:scene test))]]))
