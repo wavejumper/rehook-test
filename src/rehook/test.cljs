@@ -125,6 +125,9 @@
 (def ^:dynamic *scene* nil)
 (defonce registry (atom {}))
 
+(defn clear-registry! []
+  (reset! registry {}))
+
 (defn children
   ([id]
    (when-not *scene*

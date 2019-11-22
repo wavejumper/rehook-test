@@ -333,7 +333,8 @@
         pass? (every? :pass assertions)
         [show-code-snippet? set-show-code-snippet] (rehook/use-state true)
         [expanded? set-expanded] (rehook/use-state (not pass?))
-        title (str ns "/" name ":" line " (" (count assertions) " assertions)")]
+        total-assertions (count assertions)
+        title (str ns "/" name ":" line " (" total-assertions " " (case total-assertions 1 "assertion" "assertions") ")")]
 
     [:div {:style {:border       "1px solid"
                    :borderRadius "3px"
