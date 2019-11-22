@@ -59,25 +59,28 @@
 
 (defmacro defuitest
   [name [scenes args] & body]
-  `(defn ~(vary-meta name assoc
-                     :rehook/test? true
-                     :test `(fn []
-                              (binding [*report* (atom {:form  '~body
-                                                        :name  ~(str name)
-                                                        :tests []})]
-                                (let [system#         ~(:system args)
-                                      system-args#    ~(:system/args args)
-                                      invoked-system# (apply system# system-args#)
-                                      ctx-f#          ~(:ctx-f args)
-                                      props-f#        ~(:props-f args)
-                                      component#      ~(:component args)
-                                      shutdown-f#     ~(:shutdown-f args)
-                                      scenes#         (rehook.test/init invoked-system# ctx-f# props-f# component#)
-                                      ~scenes         scenes#]
-                                  (try
-                                    ~@body
-                                    (assoc (deref *report*) :scenes (deref scenes#))
-                                    (finally
-                                      (shutdown-f# invoked-system#)))))))
-     []
-     ::huh))
+  `(do (defn ~(vary-meta name assoc
+                         :rehook/test? true
+                         :test `(fn []
+                                  (binding [*report* (atom {:form  '~body
+                                                            :name  ~(str name)
+                                                            :tests []})]
+                                    (let [system#         ~(:system args)
+                                          system-args#    ~(:system/args args)
+                                          invoked-system# (apply system# system-args#)
+                                          ctx-f#          ~(:ctx-f args)
+                                          props-f#        ~(:props-f args)
+                                          component#      ~(:component args)
+                                          shutdown-f#     ~(:shutdown-f args)
+                                          scenes#         (rehook.test/init invoked-system# ctx-f# props-f# component#)
+                                          ~scenes scenes#]
+                                      (try
+                                        ~@body
+                                        (assoc (deref *report*) :scenes (deref scenes#))
+                                        (finally
+                                          (shutdown-f# invoked-system#)))))))
+         []
+         (cljs.test/test-var (.-cljs$lang$var ~name)))
+
+       (set! (.-cljs$lang$var ~name) (var ~name))
+       (swap! rehook.test/registry assoc (str (var ~name)) (var ~name))))

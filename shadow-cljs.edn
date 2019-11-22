@@ -8,13 +8,15 @@
    :output-to "out/app.js"
    :main      rehook.test/main}
 
-  :browser
+  :todomvc
   {:target :browser
    :output-dir "public/js"
    :asset-path "/js"
-   :devtools {:preloads [devtools.preload]}
+   :closure-defines {rehook.test.browser/HTML "<!DOCTYPE html><html><head><link rel=\"stylesheet\" href=\"styles/todo.css\"></head><body><div></div></body></html>"}
+   :devtools {:preloads [devtools.preload
+                         rehook.test.browser]}
    :modules {:main {:entries [rehook.demo.app]
-                    :init-fn rehook.demo.app/main}}}
+                    :init-fn rehook.test.browser/report}}}
 
   :test
   {:target    :node-test

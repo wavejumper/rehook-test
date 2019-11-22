@@ -2,8 +2,6 @@
   (:require [rehook.test :as rehook.test :refer-macros [with-component-mounted defuitest is io]]
             [rehook.test.browser :as test.browser]
             [rehook.dom :refer-macros [defui ui]]
-            [rehook.dom.browser :as dom.browser]
-            ["react-dom" :as react-dom]
             [rehook.demo.todo :as todo]))
 
 (def todo-app
@@ -72,12 +70,12 @@
    [:p {} "You can see the tests running in a headless CI environment here."]
    [test.browser/testcard]])
 
-(defn ^:dev/after-load render! []
+#_(defn ^:dev/after-load render! []
   (let [test-result (todo-test)]
     (js/console.log "rendering rehook.test ~~~ ♪┏(・o･)┛♪")
     (react-dom/render
      (dom.browser/bootstrap test-result identity clj->js rehook-test-container)
      (js/document.getElementById "app"))))
 
-(defn main []
+#_(defn main []
   (render!))

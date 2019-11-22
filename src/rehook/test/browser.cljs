@@ -2,15 +2,17 @@
   (:require [rehook.core :as rehook]
             [rehook.dom :refer-macros [defui ui]]
             [rehook.dom.browser :as dom.browser]
+            [rehook.test :as rehook.test]
+            [zprint.core :as zp]
+            [clojure.string :as str]
+            [clojure.data :as data]
             ["react-highlight" :as Highlight]
             ["react-frame-component" :as Frame]
             ["react-error-boundary" :as ErrorBoundary]
-            [zprint.core :as zp]
-            [clojure.string :as str]
-            [clojure.data :as data]))
+            ["react-dom" :as react-dom]))
 
-(goog-define HTML
-  "<!DOCTYPE html><html><head><link rel=\"stylesheet\" href=\"styles/todo.css\"></head><body><div></div></body></html>")
+(goog-define HTML "")
+(goog-define target "app")
 
 (def highlight
   (aget Highlight "default"))
@@ -256,6 +258,7 @@
                      :backgroundColor "#ccc"
                      :fontSize        "24px"
                      :textAlign       "center"
+                     :userSelect      "none"
                      :width           "70px"}}
        (:scene test)]]
 
@@ -334,6 +337,7 @@
                     :backgroundColor "#ccc"
                     :fontSize        "24px"
                     :textAlign       "center"
+                    :userSelect      "none"
                     :width           "70px"}}
       (:scene test)
       [material-icon {:icon "trending_flat"}]
@@ -345,17 +349,94 @@
          (fn [idx test]
            (case (:type test)
              :assertion [test-assertion {:index idx :key (str "assertions-" idx)}]
-             :mutation [mutation {:index idx :key (str "mutation-" idx)}]))
+             :mutation  [mutation {:index idx :key (str "mutation-" idx)}]))
          tests)))
 
 (defui testcard [{:keys [name form]} _]
-  (let [test-str (zpr-str (first form))]
+  (let [test-str (zpr-str (first form))
+        [show-code-snippet? set-show-code-snippet] (rehook/use-state true)]
     [:div {:style {:border       "1px solid #d1d5da"
                    :borderRadius "3px"
                    :padding      "15px"}}
      [:h2 {} name]
-     [clojure-highlight {} test-str]
+     [:div {:onClick #(set-show-code-snippet (not show-code-snippet?))
+            :style {:color "blue"
+                    :cursor "pointer"
+                    :userSelect "none"}}
+      (if show-code-snippet? "Hide test" "Show test")]
+
+     (when show-code-snippet?
+       [clojure-highlight {} test-str])
      [summary]]))
 
-(defn render-test [test]
-  (dom.browser/bootstrap test identity clj->js testcard))
+(defn run-test!
+  [{:keys [test column line end-line end-column ns]}]
+  (assoc (test)
+    :column     column
+    :line       line
+    :end-line   end-line
+    :end-column end-column
+    :ns         ns))
+
+(defn test-stats [test-results]
+  (let [tests      (mapcat :tests test-results)
+        assertions (filter #(= :assertion (:type %)) tests)]
+    {:total-tests      (count test-results)
+     :total-assertions (count assertions)
+     :pass             (count (filter :pass assertions))
+     :fail             (count (filter (comp not :pass) assertions))}))
+
+(defn test-outcome-str
+  [{:keys [total-tests total-assertions fail]}]
+  (let [test-str      (if (= 1 total-tests) "test" "tests")
+        assertion-str (if (= 1 total-assertions) "assertion" "assertions")
+        fail-str      (if (= 1 fail) "failure" "failures")]
+    (str total-tests " " test-str ", " total-assertions " " assertion-str ", " fail " " fail-str ".")))
+
+(defui report-summary [{:keys [test-results]} _]
+  (let [[test-results _] (rehook/use-atom test-results)]
+
+    (js/console.log (test-stats test-results))
+
+    (let [test-stats (test-stats test-results)
+          output     (test-outcome-str test-stats)
+          success?   (zero? (:fail test-stats))]
+      [:div {:style {:color (if success?
+                              "#77DD77"
+                              "#B74747")}}
+       output])))
+
+(defui test-summary [{:keys [registry test-results]} _]
+  (let [[registry _] (rehook/use-atom registry)]
+
+    ;; Re-run our tests everytime the registry updates.
+    (rehook/use-effect
+     (fn []
+       (js/console.log "%c running rehook.test report ~~~ ♪┏(・o･)┛♪"
+                       "background: #222; color: #bada55")
+       (->> registry
+            (map (fn [[_ var]]
+                   (run-test! (meta var))))
+            (reset! test-results))
+       (constantly nil)))
+
+    [:div {:style {:width       "calc(100% - 128px)"
+                   :maxMidth    "680px"
+                   :marginLeft  "64px"
+                   :marginRight "64px"
+                   :fontFamily  "'Open Sans', sans-serif"
+                   :lineHeight  "1.5"
+                   :color       "#24292e"}}
+     [:h1 {} "rehook-test"]
+     [report-summary]]))
+
+(defn report []
+  (react-dom/render
+   (dom.browser/bootstrap
+    ;; we kinda break our rule of no singleton state here :p
+    {:registry rehook.test/registry
+     :test-results (atom [])}
+    identity
+    clj->js
+    test-summary)
+   (js/document.getElementById target)))

@@ -14,7 +14,7 @@
        x)))
 
 (deftest simple-ui-test
-  (let [scenes (rehook.test/timeline {} identity clj->js simple-ui)]
+  (let [scenes (rehook.test/init {} identity clj->js simple-ui)]
     (with-component-mounted [scene1 (rehook.test/mount! scenes)]
       (testing "Rendered value should be equal foo"
         (is (= "foo" (first (rehook.test/children scene1 :my-div)))))
@@ -35,7 +35,7 @@
    {:prev-scene nil}
    actions))
 
-(run! (rehook.test/timeline {} identity clj->js simple-ui)
+(run! (rehook.test/init {} identity clj->js simple-ui)
   :assert ["Initial rendered value should be equal foo"
            #(= "foo" (first (rehook.test/children % :my-div)))]
 
@@ -54,7 +54,7 @@
 
 (deftest simple-ui-atom-test
   (let [my-atom (atom "foo")
-        scenes  (rehook.test/timeline {:my-atom my-atom} identity clj->js simple-ui-atom)]
+        scenes  (rehook.test/init {:my-atom my-atom} identity clj->js simple-ui-atom)]
     (with-component-mounted [scene1 (rehook.test/mount! scenes)]
       (testing "Rendered value should equal foo"
         (is (= "foo" (first (rehook.test/children scene1 :my-div)))))

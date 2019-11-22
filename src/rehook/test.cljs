@@ -123,6 +123,7 @@
 
 (def ^:dynamic *report* nil)
 (def ^:dynamic *scene* nil)
+(defonce registry (atom {}))
 
 (defn children
   ([id]
