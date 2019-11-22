@@ -358,17 +358,18 @@
        title]]
 
      (when expanded?
-       [:div {:onClick #(set-show-code-snippet (not show-code-snippet?))
-              :style   {:color      "blue"
-                        :cursor     "pointer"
-                        :userSelect "none"}}
-        (if show-code-snippet? "Hide test form" "Show test form")]
+       [:div {}
+        [:div {:onClick #(set-show-code-snippet (not show-code-snippet?))
+               :style   {:color      "blue"
+                         :cursor     "pointer"
+                         :userSelect "none"}}
+         (if show-code-snippet? "Hide test form" "Show test form")]
 
 
-       (when show-code-snippet?
-         [clojure-highlight {} test-str])
+        (when show-code-snippet?
+          [clojure-highlight {} test-str])
 
-       [summary {:index index}])]))
+        [summary {:index index}]])]))
 
 (defn run-test!
   [{:keys [test column line end-line end-column ns]}]
