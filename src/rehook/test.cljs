@@ -65,10 +65,10 @@
 
 (defn eval-effect? [ticks prev-deps deps]
   (cond
-    (= 0 ticks)           true
-    (empty? deps)         true
-    (not= prev-deps deps) true
-    :else                 false))
+    (= 0 ticks)                       true
+    (empty? deps)                     true
+    (not (identical? prev-deps deps)) true
+    :else                             false))
 
 (defn mount-scene
   [prev-scene scene]
