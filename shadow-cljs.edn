@@ -1,4 +1,4 @@
-{:deps  true
+{:lein true
  :nrepl {:port 9000}
  :dev-http {8000 "public"}
 
