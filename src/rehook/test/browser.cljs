@@ -310,28 +310,30 @@
       [material-icon {:icon "trending_flat"}]
       (inc (:scene test))]]))
 
+(defn build-summary-component [name ns index idx [test & tests]]
+  (case (:type test)
+    :assertion
+    (let [[next-assertion & _] (filter #(= :assertion (:type %)) tests)]
+      [test-assertion {:path  [index idx]
+                       :key   (str ns "/" name "/" "assertion-" idx)
+                       :debug (not= (:scene next-assertion) (:scene test))}])
+
+    :mutation
+    [mutation {:path [index idx]
+               :key  (str ns "/" name "/" "mutation-" idx)}]))
+
 (defui summary [{:keys [test-results]} props]
   (let [index (aget props "index")
         [{:keys [name ns tests]} _] (rehook/use-atom-path test-results [index])]
     (into [:div {}]
+          ;; TODO: not use loop
           (loop [idx 0
-                 [test & tests] tests
+                 tests tests
                  components []]
-            (if (nil? test)
+            (if (empty? tests)
               components
-              (let [[next-assertion & _] (filter #(= :assertion (:type %)) tests)
-                    component (case (:type test)
-                                :assertion
-                                [test-assertion {:path  [index idx]
-                                                 :key   (str ns "/" name "/" "assertion-" idx)
-                                                 :debug (not= (:scene next-assertion) (:scene test))}]
-
-                                :mutation
-                                [mutation {:path [index idx]
-                                           :key  (str ns "/" name "/" "mutation-" idx)}])]
-                (recur (inc idx)
-                       tests
-                       (conj components component))))))))
+              (let [component (build-summary-component name ns index idx tests)]
+                (recur (inc idx) (rest tests) (conj components component))))))))
 
 (defui test-error [{:keys [test-results]} props]
   (let [index     (aget props "index")
