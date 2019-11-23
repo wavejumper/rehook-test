@@ -1,7 +1,29 @@
 (ns rehook.test
   (:require [rehook.core :as rehook]
+            [rehook.dom :refer-macros [ui]]
             [rehook.util :as util]
-            [cljs.test]))
+            [cljs.test]
+            [cljs.spec.alpha :as s]))
+
+(s/def :init-args/system fn?)
+(s/def :init-args/ctx-f fn?)
+(s/def :init-args/props-f fn?)
+(s/def :init-args/component any?)
+(s/def :init-args/system-args (s/coll-of any?))
+(s/def :init-args/shutdown-f fn?)
+
+(s/def ::init-args
+  (s/keys :req-un [:init-args/system
+                   :init-args/ctx-f
+                   :init-args/props-f
+                   :init-args/component]
+          :opt-un [:init-args/system-args
+                   :init-args/shutdown-f]))
+
+(s/def ::defuitest
+  (s/cat :name symbol?
+         :args (s/tuple symbol? ::init-args)
+         :body (s/* any?)))
 
 (defn- ctx-transformer [ctx elem]
   (update ctx :rehook.test/id
@@ -156,6 +178,10 @@
    (if-let [f (get-prop scene id k)]
      (apply f args)
      (js/console.warn "No fn found for prop" [id k]))))
+
+(defn with-props [component props]
+  (ui [_ _ $]
+    ($ component props)))
 
 (defn main []
   (js/console.log "rehook.test ~~~ ♪┏(・o･)┛♪"))

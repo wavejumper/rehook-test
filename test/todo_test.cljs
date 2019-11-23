@@ -2,14 +2,16 @@
   (:require [rehook.test :as rehook.test :refer-macros [defuitest is io initial-render next-render]]
             [rehook.demo.todo :as todo]))
 
-(defuitest foo
-  [scenes {:system      todo/system
-           :system/args []
-           :shutdown-f  identity
-           :ctx-f       identity
-           :props-f     identity
-           :component   todo/todo-app}]
+(defn test-ctx [component]
+  {:system      todo/system
+   :system-args []
+   :shutdown-f  identity
+   :ctx-f       identity
+   :props-f     identity
+   :component   component})
 
+(defuitest todo-app--clear-completed
+  [scenes (test-ctx todo/todo-app)]
   (-> (initial-render scenes
         (is "Initial render should show 4 TODO items"
           (= (rehook.test/children :clear-completed) ["Clear completed " 4]))
@@ -37,3 +39,18 @@
 
        (is "After pressing enter button, input's value should be cleared."
          (empty? (rehook.test/get-prop :todo-input :value))))))
+
+;; defuitest isn't limited to just top-level components!
+;; we can test child components as well :)
+(defuitest todo-app--todo-stats
+  [scenes (test-ctx (rehook.test/with-props
+                     todo/todo-stats
+                     {:active 1 :done 1}))]
+
+  (-> (initial-render scenes
+        (is "Initial render should show 1 item left"
+          (= (rehook.test/children :items-left)
+             [[:strong {} 1]
+              " "
+              "item"
+              " left"])))))

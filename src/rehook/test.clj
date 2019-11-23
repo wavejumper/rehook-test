@@ -1,20 +1,4 @@
-(ns rehook.test
-  (:require [clojure.spec.alpha :as s]
-            [rehook.util :as util]))
-
-(s/def ::init-args
-  (s/cat :ctx     (s/or :map map?
-                        :symbol symbol?)
-         :ctx-f   (s/or :fn fn?
-                        :symbol? symbol?)
-         :props-f (s/or :fn? fn?
-                        :symbol? symbol?)
-         :e       util/rehook-component?))
-
-(s/def ::defuitest
-  (s/cat :name symbol?
-         :args (s/tuple symbol? ::init-args)
-         :body (s/* any?)))
+(ns rehook.test)
 
 (defmacro io [title form]
   `(do
@@ -83,28 +67,31 @@
 
 (defmacro defuitest
   [name [scenes args] & body]
-  `(do (defn ~(vary-meta name assoc
-                         :rehook/test? true
-                         :test `(fn []
-                                  (binding [*report* (atom {:form  '~body
-                                                            :name  ~(str name)
-                                                            :tests []})]
-                                    (let [system#         ~(:system args)
-                                          system-args#    ~(:system/args args)
-                                          invoked-system# (apply system# system-args#)
-                                          ctx-f#          ~(:ctx-f args)
-                                          props-f#        ~(:props-f args)
-                                          component#      ~(:component args)
-                                          shutdown-f#     ~(:shutdown-f args)
-                                          scenes#         (rehook.test/init invoked-system# ctx-f# props-f# component#)
-                                          ~scenes scenes#]
-                                      (try
-                                        ~@body
-                                        (assoc (deref *report*) :scenes (deref scenes#))
-                                        (finally
-                                          (shutdown-f# invoked-system#)))))))
-         []
-         (cljs.test/test-var (.-cljs$lang$var ~name)))
+  `(do
+     (cljs.spec.alpha/assert* ::init-args ~args)
+     (defn ~(vary-meta name assoc
+                       :rehook/test? true
+                       :test `(fn []
+                                (binding [*report* (atom {:form  '~body
+                                                          :name  ~(str name)
+                                                          :tests []})]
+                                  (let [args#           ~args
+                                        system#         (:system args#)
+                                        system-args#    (or (:system-args args#) [])
+                                        invoked-system# (apply system# system-args#)
+                                        ctx-f#          (:ctx-f args#)
+                                        props-f#        (:props-f args#)
+                                        component#      (:component args#)
+                                        shutdown-f#     (or (:shutdown-f args#) identity)
+                                        scenes#         (rehook.test/init invoked-system# ctx-f# props-f# component#)
+                                        ~scenes         scenes#]
+                                    (try
+                                      ~@body
+                                      (assoc (deref *report*) :scenes (deref scenes#))
+                                      (finally
+                                        (shutdown-f# invoked-system#)))))))
+       []
+       (cljs.test/test-var (.-cljs$lang$var ~name)))
 
-       (set! (.-cljs$lang$var ~name) (var ~name))
-       (swap! rehook.test/registry assoc (str (var ~name)) (var ~name))))
+     (set! (.-cljs$lang$var ~name) (var ~name))
+     (swap! rehook.test/registry assoc (str (var ~name)) (var ~name))))

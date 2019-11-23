@@ -21,7 +21,10 @@
    (zpr-str code 80))
   ([code numeric-width]
    (with-out-str
-    (zp/zprint code (or numeric-width 80)))))
+    (zp/zprint code numeric-width)))
+  ([code numeric-width opts]
+   (with-out-str
+    (zp/zprint code numeric-width opts))))
 
 (defui clojure-highlight [_ props $]
   (apply $ Highlight {:language "clojure"} (aget props "children")))
@@ -340,7 +343,7 @@
 (defui testcard [{:keys [test-results]} props]
   (let [index (aget props "index")
         [{:keys [name form ns line tests error?]} _] (rehook/use-atom-path test-results [index])
-        test-str (zpr-str (first form))
+        test-str (zpr-str (first form) 80)
         assertions (filter #(= :assertion (:type %)) tests)
         pass? (and (every? :pass assertions) (not error?))
         [show-code-snippet? set-show-code-snippet] (rehook/use-state true)
