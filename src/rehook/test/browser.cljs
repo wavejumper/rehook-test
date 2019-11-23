@@ -14,6 +14,7 @@
 (goog-define HTML "")
 (goog-define target "app")
 (goog-define domheight 400)
+(goog-define syntaxcss "https://cdnjs.cloudflare.com/ajax/libs/highlight.js/9.15.10/styles/github.min.css")
 
 (defn zpr-str
   "Like pr-str, but using zprint"
@@ -483,8 +484,22 @@
 
      [report-summary]]))
 
+(defn inject-stylesheet! [href]
+  (let [link (doto (js/document.createElement "link")
+               (aset "href" href)
+               (aset "rel" "stylesheet")
+               (aset "type" "text/css"))
+        head (aget js/document "head")]
+    (.appendChild head link)))
+
 (defn report []
   (let [system {:registry     rehook.test/registry
                 :test-results (atom [])}
         elem   (dom.browser/bootstrap system identity clj->js rehook-summary)]
+
+    (inject-stylesheet! "https://fonts.googleapis.com/css?family=Open+Sans&display=swap")
+    (inject-stylesheet! "https://fonts.googleapis.com/icon?family=Material+Icons")
+    (inject-stylesheet! "https://crowley.kibu.com.au/rehook/styles/table.css")
+    (inject-stylesheet! syntaxcss)
+
     (react-dom/render elem (js/document.getElementById target))))
