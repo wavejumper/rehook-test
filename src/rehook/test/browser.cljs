@@ -16,6 +16,7 @@
 (goog-define domheight 400)
 
 (defn zpr-str
+  "Like pr-str, but using zprint"
   ([code]
    (zpr-str code 80))
   ([code numeric-width]
@@ -24,6 +25,9 @@
 
 (defui clojure-highlight [_ props $]
   (apply $ Highlight {:language "clojure"} (aget props "children")))
+
+(defui js-highlight [_ props $]
+  (apply $ Highlight {:language "javascript"} (aget props "children")))
 
 (defn current-scene [scenes index]
   (get-in scenes [:timeline index]))
@@ -42,7 +46,7 @@
     [:div {}
      [:h1 {} (str title)]
      [clojure-highlight {} (zpr-str error 120)]
-     [Highlight {:language "javascript"} (str stacktrace)]]))
+     [js-highlight {} (str stacktrace)]]))
 
 (defui material-icon [_ props]
   (let [icon (aget props "icon")]
@@ -57,26 +61,18 @@
     ($ ErrorBoundary
        {:FallbackComponent (error-handler {:title "Error rendering Hiccup."} $)}
        ($ :div {:style {:overflow "scroll"}}
-          ($ Highlight
-             {:language "clojure"
-              :key      (scene-key idx2 "code")}
-             (with-out-str
-              (zp/zprint (js->clj ((:dom scene))) 80)))))))
+          ($ clojure-highlight {}
+             (zpr-str (js->clj ((:dom scene))) 80))))))
 
 (defui diff [{:keys [test-results]} props $]
   (let [[idx1 idx2] (aget props "path")
         [scenes _]  (rehook/use-atom-path test-results [idx1 :scenes])
         scene       (current-scene scenes idx2)
         prev-scene  (previous-scene scenes idx2)]
-    ($ Highlight
-       {:language "clojure"
-        :key      (scene-key idx2 "code-diff")}
-       (with-out-str
-        (zp/zprint
-
-         (data/diff ((:dom scene))
-                    ((:dom prev-scene)))
-         80)))))
+    ($ clojure-highlight {}
+       (zpr-str (data/diff ((:dom scene))
+                           ((:dom prev-scene)))
+                80))))
 
 (defui dom [{:keys [test-results]} props $]
   (let [[idx1 idx2] (aget props "path")
@@ -338,10 +334,8 @@
     [:div {}
      [:h2 {} "Error evaluating test!"]
      (if stack
-       [Highlight {:language "javascript"}
-        (str stack)]
-       [Highlight {:language "javascript"}
-        (str e)])]))
+       [js-highlight {} (str stack)]
+       [js-highlight {} (str e)])]))
 
 (defui testcard [{:keys [test-results]} props]
   (let [index (aget props "index")
@@ -422,7 +416,7 @@
         test-stats       (test-stats test-results)
         output           (test-outcome-str test-stats)
         success?         (and (zero? (:fail test-stats))
-                              (zero? (:error test-stats)))]
+                              (zero? (:total-errors test-stats)))]
 
     (into [:div {}
            [:div {:style {:color (if success?

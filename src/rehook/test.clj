@@ -16,10 +16,15 @@
          :args (s/tuple symbol? ::init-args)
          :body (s/* any?)))
 
-(defmacro io [scene title form]
-  `(binding [*scene* ~scene]
+(defmacro io [title form]
+  `(do
+     (print "Called => " ~title)
      (when (nil? *report*)
-       (throw (ex-info "io called outside of test" {:scene *scene* :form '~form})))
+       (throw (ex-info "io called outside of defuitest" {:scene *scene* :form '~form})))
+
+     (when (nil? *scene*)
+       (throw (ex-info "io called outside body of next-render or initial-render"
+                       {:report *report* :form '~form})))
 
      (try ~form
           (swap! *report* update :tests conj
@@ -33,10 +38,15 @@
                                          :report (deref *report*)}
                             e#))))))
 
-(defmacro is [scene title form]
-  `(binding [*scene* ~scene]
+(defmacro is [title form]
+  `(do
      (when (nil? *report*)
-       (throw (ex-info "assertion called outside of test" {:scene *scene* :form '~form})))
+       (throw (ex-info "assertion called outside of defuitest"
+                       {:scene *scene* :form '~form})))
+
+     (when (nil? *scene*)
+       (throw (ex-info "assertion called outside body of next-render or initial-render"
+                       {:report *report* :form '~form})))
 
      (let [res# ~form]
        (cljs.test/testing ~title
@@ -49,13 +59,27 @@
                :title ~title
                :pass  (if res# true false)}))))
 
-(defmacro with-component-mounted
-  [[component-sym component] & body]
-  `(let [component# ~component]
-     (try (let [~component-sym component#]
-            ~@body)
-          (finally
-            (rehook.test/unmount! component#)))))
+(defmacro initial-render [scenes & body]
+  `(let [scenes# ~scenes
+         scene#  (rehook.test/mount! scenes#)]
+     (try
+       (binding [*scene* scene#]
+         ~@body
+         {:prev-scene scene# :scenes scenes#})
+       (finally
+         (rehook.test/unmount! scene#)))))
+
+(defmacro next-render [prev-state & body]
+  `(let [prev-state# ~prev-state
+         scenes#     (:scenes prev-state#)
+         prev-scene# (:prev-scene prev-state#)
+         scene#      (rehook.test/mount! scenes# prev-scene#)]
+     (try
+       (binding [*scene* scene#]
+         ~@body
+         {:prev-scene scene# :scenes scenes#})
+       (finally
+         (rehook.test/unmount! scene#)))))
 
 (defmacro defuitest
   [name [scenes args] & body]
