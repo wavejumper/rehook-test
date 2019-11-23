@@ -6,23 +6,18 @@
             [zprint.core :as zp]
             [clojure.string :as str]
             [clojure.data :as data]
-            ["react-highlight" :as Highlight]
-            ["react-frame-component" :as Frame]
-            ["react-error-boundary" :as ErrorBoundary]
+            ["react-highlight" :default Highlight]
+            ["react-frame-component" :default Frame]
+            ["react-error-boundary" :default ErrorBoundary]
             ["react-dom" :as react-dom]))
 
 (goog-define HTML "")
 (goog-define target "app")
 (goog-define domheight 400)
 
-(def highlight
-  (aget Highlight "default"))
-
-(def error-boundary
-  (aget ErrorBoundary "default"))
-
-(def frame
-  (aget Frame "default"))
+(def highlight Highlight)
+(def error-boundary ErrorBoundary)
+(def frame Frame)
 
 (defn zpr-str
   ([code]
@@ -325,16 +320,32 @@
                                     :key  (str ns "/" name "/" "mutation-" idx)}]))
            tests))))
 
+(defui test-error [{:keys [test-results]} props]
+  (let [index     (aget props "index")
+        [e _]     (rehook/use-atom-path test-results [index :e])
+        [stack _] (rehook/use-atom-path test-results [index :stack])]
+    [:div {}
+     [:h2 {} "Error evaluating test!"]
+     (if stack
+       [highlight {:language "javascript"}
+        (str stack)]
+       [highlight {:language "javascript"}
+        (str e)])]))
+
 (defui testcard [{:keys [test-results]} props]
   (let [index (aget props "index")
-        [{:keys [name form ns line tests]} _] (rehook/use-atom-path test-results [index])
+        [{:keys [name form ns line tests error?]} _] (rehook/use-atom-path test-results [index])
         test-str (zpr-str (first form))
         assertions (filter #(= :assertion (:type %)) tests)
-        pass? (every? :pass assertions)
+        pass? (and (every? :pass assertions) (not error?))
         [show-code-snippet? set-show-code-snippet] (rehook/use-state true)
         [expanded? set-expanded] (rehook/use-state (not pass?))
         total-assertions (count assertions)
-        title (str ns "/" name ":" line " (" total-assertions " " (case total-assertions 1 "assertion" "assertions") ")")]
+        title (str ns "/" name ":" line
+                   (if error?
+                     " (1 error)"
+                     (str " (" total-assertions " "
+                          (case total-assertions 1 "assertion" "assertions") ")")))]
 
     [:div {:style {:border       "1px solid"
                    :borderRadius "3px"
@@ -360,47 +371,47 @@
 
      (when expanded?
        [:div {}
-        [:div {:onClick #(set-show-code-snippet (not show-code-snippet?))
-               :style   {:color      "blue"
-                         :cursor     "pointer"
-                         :userSelect "none"}}
-         (if show-code-snippet? "Hide test form" "Show test form")]
+        (when-not error?
+          [:div {:onClick #(set-show-code-snippet (not show-code-snippet?))
+                 :style   {:color      "blue"
+                           :cursor     "pointer"
+                           :userSelect "none"}}
+           (if show-code-snippet? "Hide test form" "Show test form")])
 
-
-        (when show-code-snippet?
+        (when (and show-code-snippet? (not error?))
           [clojure-highlight {} test-str])
 
-        [summary {:index index}]])]))
-
-(defn run-test!
-  [{:keys [test column line end-line end-column ns]}]
-  (assoc (test)
-    :column     column
-    :line       line
-    :end-line   end-line
-    :end-column end-column
-    :ns         ns))
+        (if error?
+          [test-error {:index index}]
+          [summary {:index index}])])]))
 
 (defn test-stats [test-results]
   (let [tests      (mapcat :tests test-results)
-        assertions (filter #(= :assertion (:type %)) tests)]
+        assertions (filter #(= :assertion (:type %)) tests)
+        errors     (filter :error? test-results)]
     {:total-tests      (count test-results)
      :total-assertions (count assertions)
+     :total-errors     (count errors)
      :pass             (count (filter :pass assertions))
      :fail             (count (filter (comp not :pass) assertions))}))
 
 (defn test-outcome-str
-  [{:keys [total-tests total-assertions fail]}]
+  [{:keys [total-tests total-assertions fail total-errors]}]
   (let [test-str      (if (= 1 total-tests) "test" "tests")
         assertion-str (if (= 1 total-assertions) "assertion" "assertions")
-        fail-str      (if (= 1 fail) "failure" "failures")]
-    (str total-tests " " test-str ", " total-assertions " " assertion-str ", " fail " " fail-str ".")))
+        fail-str      (if (= 1 fail) "failure" "failures")
+        errors-str    (if (= 1 total-errors) "error" "errors")]
+    (str total-tests " " test-str ", "
+         total-assertions " " assertion-str ", "
+         total-errors " " errors-str ", "
+         fail " " fail-str ".")))
 
 (defui report-summary [{:keys [test-results]} _]
   (let [[test-results _] (rehook/use-atom test-results)
         test-stats       (test-stats test-results)
         output           (test-outcome-str test-stats)
-        success?         (zero? (:fail test-stats))]
+        success?         (and (zero? (:fail test-stats))
+                              (zero? (:error test-stats)))]
 
     (into [:div {}
            [:div {:style {:color (if success?
@@ -415,6 +426,30 @@
                          :index i}]])
            test-results))))
 
+(defn run-test!
+  [{:keys [test column line end-line end-column ns name]}]
+  (let [result (try (test)
+                    (catch js/Error e
+                      {:error? true
+                       :e      e
+                       :stack  (aget e "stack")
+                       :name   name}))]
+    (assoc result
+      :column     column
+      :line       line
+      :end-line   end-line
+      :end-column end-column
+      :ns         ns)))
+
+(defn run-tests!
+  [curr-registry test-results]
+  (->> curr-registry
+       (mapv (fn [[_ var]]
+               (run-test! (meta var))))
+       (sort-by #(str (:ns %) "-" (:name %)))
+       (vec)
+       (reset! test-results)))
+
 (defui rehook-summary [{:keys [registry test-results]} _]
   (let [[registry _] (rehook/use-atom registry)]
 
@@ -423,12 +458,7 @@
      (fn []
        (js/console.log "%c running rehook.test report ~~~ ♪┏(・o･)┛♪"
                        "background: #222; color: #bada55")
-       (->> registry
-            (mapv (fn [[_ var]]
-                    (run-test! (meta var))))
-            (sort-by #(str (:ns %) "-" (:name %)))
-            (vec)
-            (reset! test-results))
+       (run-tests! registry test-results)
        (constantly nil)))
 
     [:div {:style {:width       "calc(100% - 128px)"
