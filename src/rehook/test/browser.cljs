@@ -181,6 +181,7 @@
 
 (defui test-assertion [{:keys [test-results]} props]
   (let [[idx1 idx2]                      (aget props "path")
+        debug?                           (aget props "debug")
         path                             [idx1 :tests idx2]
         [test _]                         (rehook/use-atom-path test-results path)
         [show-details? set-show-details] (rehook/use-state true)
@@ -188,7 +189,8 @@
 
     (rehook/use-effect
      (fn []
-       (set-show-details true)
+       (when debug?
+         (set-show-details true))
        (constantly nil))
      [(name tab)])
 
@@ -225,46 +227,47 @@
                      :width           "70px"}}
        (:scene test)]]
 
-     [:div {:style {:display        "flex"
-                    :justifyContent "space-between"
-                    :alignItems   "center"
-                    :flexWrap     "wrap"}}
+     (when debug?
+       [:div {:style {:display        "flex"
+                      :justifyContent "space-between"
+                      :alignItems     "center"
+                      :flexWrap       "wrap"}}
 
-      [:div {:style {:display      "flex"
-                     :borderRadius "3px"
-                     :alignItems   "center"
-                     :flexWrap     "wrap"
-                     :marginTop    "10px"
-                     :marginBottom "10px"}}
+        [:div {:style {:display      "flex"
+                       :borderRadius "3px"
+                       :alignItems   "center"
+                       :flexWrap     "wrap"
+                       :marginTop    "10px"
+                       :marginBottom "10px"}}
 
-       [button {:onClick  #(set-tab :dom)
-                :title    "DOM"
-                :selected (= :dom tab)}]
+         [button {:onClick  #(set-tab :dom)
+                  :title    "DOM"
+                  :selected (= :dom tab)}]
 
-       [button {:onClick  #(set-tab :hiccup)
-                :title    "Hiccup"
-                :selected (= :hiccup tab)}]
+         [button {:onClick  #(set-tab :hiccup)
+                  :title    "Hiccup"
+                  :selected (= :hiccup tab)}]
 
-       (when (pos? (:scene test))
-         [button {:onClick #(set-tab :diff)
-                  :selected (= tab :diff)
-                  :title    "Diff"}])
+         (when (pos? (:scene test))
+           [button {:onClick  #(set-tab :diff)
+                    :selected (= tab :diff)
+                    :title    "Diff"}])
 
-       [button {:onClick  #(set-tab :effects)
-                :selected (= tab :effects)
-                :title    "Effects"}]
+         [button {:onClick  #(set-tab :effects)
+                  :selected (= tab :effects)
+                  :title    "Effects"}]
 
-       [button {:onClick  #(set-tab :state)
-                :selected (= tab :state)
-                :title    "State"}]]
+         [button {:onClick  #(set-tab :state)
+                  :selected (= tab :state)
+                  :title    "State"}]]
 
-      [:div {:onClick #(set-show-details (not show-details?))
-             :style {:color "blue"
-                     :cursor "pointer"
-                     :userSelect "none"}}
-       (if show-details? "Hide" "Show")]]
+        [:div {:onClick #(set-show-details (not show-details?))
+               :style   {:color      "blue"
+                         :cursor     "pointer"
+                         :userSelect "none"}}
+         (if show-details? "Hide" "Show")]])
 
-     (when show-details?
+     (when (and show-details? debug?)
        (case tab
          :dom     [dom {:path [idx1 (:scene test)]}]
          :hiccup  [code {:path [idx1 (:scene test)]}]
@@ -311,14 +314,24 @@
   (let [index (aget props "index")
         [{:keys [name ns tests]} _] (rehook/use-atom-path test-results [index])]
     (into [:div {}]
-          (map-indexed
-           (fn [idx test]
-             (case (:type test)
-               :assertion [test-assertion {:path [index idx]
-                                           :key  (str ns "/" name "/" "assertion-" idx)}]
-               :mutation [mutation {:path [index idx]
-                                    :key  (str ns "/" name "/" "mutation-" idx)}]))
-           tests))))
+          (loop [idx 0
+                 [test & tests] tests
+                 components []]
+            (if (nil? test)
+              components
+              (let [[next-assertion & _] (filter #(= :assertion (:type %)) tests)
+                    component (case (:type test)
+                                :assertion
+                                [test-assertion {:path  [index idx]
+                                                 :key   (str ns "/" name "/" "assertion-" idx)
+                                                 :debug (not= (:scene next-assertion) (:scene test))}]
+
+                                :mutation
+                                [mutation {:path [index idx]
+                                           :key  (str ns "/" name "/" "mutation-" idx)}])]
+                (recur (inc idx)
+                       tests
+                       (conj components component))))))))
 
 (defui test-error [{:keys [test-results]} props]
   (let [index     (aget props "index")
