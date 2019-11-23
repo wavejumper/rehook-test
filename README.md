@@ -12,5 +12,5 @@ Add this to your `deps.edn`:
 
 ```clojure
 wavejumper/rehook-test {:git/url "https://github.com/wavejumper/rehook-test"
-                        :sha     "52d6f495ff409a3882aba875655a5c31492ff658"}
+                        :sha     "a7f2043fb24a515fad5b3358eccbd3b54d1787d8"}
 ```
