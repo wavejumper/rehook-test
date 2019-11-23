@@ -15,10 +15,6 @@
 (goog-define target "app")
 (goog-define domheight 400)
 
-(def highlight Highlight)
-(def error-boundary ErrorBoundary)
-(def frame Frame)
-
 (defn zpr-str
   ([code]
    (zpr-str code 80))
@@ -27,7 +23,7 @@
     (zp/zprint code (or numeric-width 80)))))
 
 (defui clojure-highlight [_ props $]
-  (apply $ highlight {:language "clojure"} (aget props "children")))
+  (apply $ Highlight {:language "clojure"} (aget props "children")))
 
 (defn current-scene [scenes index]
   (get-in scenes [:timeline index]))
@@ -46,7 +42,7 @@
     [:div {}
      [:h1 {} (str title)]
      [clojure-highlight {} (zpr-str error 120)]
-     [highlight {:language "javascript"} (str stacktrace)]]))
+     [Highlight {:language "javascript"} (str stacktrace)]]))
 
 (defui material-icon [_ props]
   (let [icon (aget props "icon")]
@@ -58,10 +54,10 @@
   (let [[idx1 idx2] (aget props "path")
         [scenes _]  (rehook/use-atom-path test-results [idx1 :scenes])
         scene       (current-scene scenes idx2)]
-    ($ error-boundary
-       {:FallbackComponent (error-handler {:title "Error rendering Hiccup. You likely found a bug with rehook."} $)}
+    ($ ErrorBoundary
+       {:FallbackComponent (error-handler {:title "Error rendering Hiccup."} $)}
        ($ :div {:style {:overflow "scroll"}}
-          ($ highlight
+          ($ Highlight
              {:language "clojure"
               :key      (scene-key idx2 "code")}
              (with-out-str
@@ -72,7 +68,7 @@
         [scenes _]  (rehook/use-atom-path test-results [idx1 :scenes])
         scene       (current-scene scenes idx2)
         prev-scene  (previous-scene scenes idx2)]
-    ($ highlight
+    ($ Highlight
        {:language "clojure"
         :key      (scene-key idx2 "code-diff")}
        (with-out-str
@@ -87,9 +83,9 @@
         [scenes _]  (rehook/use-atom-path test-results [idx1 :scenes])
         scene       (current-scene scenes idx2)
         dom         (:dom scene)]
-    ($ error-boundary
-       {:FallbackComponent (error-handler {:title "Error rendering to the DOM. You likely found a bug with rehook."} $)}
-       ($ frame {:initialContent HTML
+    ($ ErrorBoundary
+       {:FallbackComponent (error-handler {:title "Error rendering to the DOM."} $)}
+       ($ Frame {:initialContent HTML
                  :style          {:height (str domheight "px")
                                   :width  "100%"}}
           ;; bootstrap iframe with 'sandboxed' ctx
@@ -342,9 +338,9 @@
     [:div {}
      [:h2 {} "Error evaluating test!"]
      (if stack
-       [highlight {:language "javascript"}
+       [Highlight {:language "javascript"}
         (str stack)]
-       [highlight {:language "javascript"}
+       [Highlight {:language "javascript"}
         (str e)])]))
 
 (defui testcard [{:keys [test-results]} props]
@@ -491,12 +487,7 @@
      [report-summary]]))
 
 (defn report []
-  (react-dom/render
-   (dom.browser/bootstrap
-    ;; we kinda break our rule of no singleton state here :p
-    {:registry rehook.test/registry
-     :test-results (atom [])}
-    identity
-    clj->js
-    rehook-summary)
-   (js/document.getElementById target)))
+  (let [system {:registry rehook.test/registry
+                :test-results (atom [])}
+        elem   (dom.browser/bootstrap system identity clj->js rehook-summary)]
+    (react-dom/render elem (js/document.getElementById target))))
