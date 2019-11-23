@@ -306,30 +306,30 @@
       [material-icon {:icon "trending_flat"}]
       (inc (:scene test))]]))
 
-(defn build-summary-component [name ns index idx [test & tests]]
+(defn build-summary-component [name ns test-index summary-index [test & tests]]
   (case (:type test)
     :assertion
     (let [[next-assertion & _] (filter #(= :assertion (:type %)) tests)]
-      [test-assertion {:path  [index idx]
-                       :key   (str ns "/" name "/" "assertion-" idx)
+      [test-assertion {:path  [test-index summary-index]
+                       :key   (str ns "/" name "/" "assertion:"  summary-index)
                        :debug (not= (:scene next-assertion) (:scene test))}])
 
     :mutation
-    [mutation {:path [index idx]
-               :key  (str ns "/" name "/" "mutation-" idx)}]))
+    [mutation {:path [test-index summary-index]
+               :key  (str ns "/" name "/" "mutation:" summary-index)}]))
 
 (defui summary [{:keys [test-results]} props]
-  (let [index (aget props "index")
-        [{:keys [name ns tests]} _] (rehook/use-atom-path test-results [index])]
+  (let [test-index (aget props "index")
+        [{:keys [name ns tests]} _] (rehook/use-atom-path test-results [test-index])]
     (into [:div {}]
           ;; TODO: not use loop
-          (loop [idx 0
+          (loop [summary-index 0
                  tests tests
                  components []]
             (if (empty? tests)
               components
-              (let [component (build-summary-component name ns index idx tests)]
-                (recur (inc idx) (rest tests) (conj components component))))))))
+              (let [component (build-summary-component name ns test-index summary-index tests)]
+                (recur (inc summary-index) (rest tests) (conj components component))))))))
 
 (defui test-error [{:keys [test-results]} props]
   (let [index     (aget props "index")
@@ -487,7 +487,7 @@
      [report-summary]]))
 
 (defn report []
-  (let [system {:registry rehook.test/registry
+  (let [system {:registry     rehook.test/registry
                 :test-results (atom [])}
         elem   (dom.browser/bootstrap system identity clj->js rehook-summary)]
     (react-dom/render elem (js/document.getElementById target))))
